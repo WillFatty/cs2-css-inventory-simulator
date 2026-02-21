@@ -5,6 +5,7 @@
 
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Memory;
+using CounterStrikeSharp.API.Modules.Timers;
 
 namespace InventorySimulator;
 
@@ -25,13 +26,33 @@ public partial class InventorySimulator : BasePlugin
         RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull, HookMode.Post);
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeathPre);
         RegisterEventHandler<EventRoundMvp>(OnRoundMvpPre);
+        RegisterEventHandler<EventRoundEnd>(OnRoundEnd, HookMode.Post);
         Natives.CCSPlayerController_ProcessUsercmds.Hook(OnProcessUsercmds, HookMode.Post);
         VirtualFunctions.GiveNamedItemFunc.Hook(OnGiveNamedItemPre, HookMode.Pre);
         Natives.CCSPlayerInventory_GetItemInLoadout.Hook(GetItemInLoadout, HookMode.Post);
         ConVars.File.ValueChanged += HandleFileChanged;
         ConVars.IsRequireInventory.ValueChanged += HandleIsRequireInventoryChanged;
+        ConVars.AutoReloadInterval.ValueChanged += HandleAutoReloadIntervalChanged;
         HandleFileChanged(null, ConVars.File.Value);
         HandleIsRequireInventoryChanged(null, ConVars.IsRequireInventory.Value);
+        StartAutoReloadTimer();
+    }
+
+    private CounterStrikeSharp.API.Modules.Timers.Timer? _autoReloadTimer;
+
+    private void StartAutoReloadTimer()
+    {
+        _autoReloadTimer?.Kill();
+        _autoReloadTimer = AddTimer(
+            Math.Max(5, ConVars.AutoReloadInterval.Value),
+            HandleAutoReload,
+            TimerFlags.REPEAT
+        );
+    }
+
+    public void HandleAutoReloadIntervalChanged(object? _, int value)
+    {
+        StartAutoReloadTimer();
     }
 
     public override void Unload(bool hotReload)

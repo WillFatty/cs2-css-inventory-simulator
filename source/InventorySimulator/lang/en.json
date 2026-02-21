@@ -7,5 +7,6 @@
   "invsim.spray_cooldown": "You cannot spray right now. Please wait {0} seconds.",
   "invsim.login_in_progress": "Trying to authenticate to your inventory...",
   "invsim.login": "Access {0} to view your inventory.",
-  "invsim.login_failed": "Unable to authenticate to your inventory, please try again later."
+  "invsim.login_failed": "Unable to authenticate to your inventory, please try again later.",
+  "invsim.roundwin_case": "{gold}{0}{white} You received a weapon case for winning the round!"
 }

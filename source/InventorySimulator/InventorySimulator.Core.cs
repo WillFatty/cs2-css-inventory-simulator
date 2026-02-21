@@ -45,6 +45,7 @@ public partial class InventorySimulator
             inventory.InitializeWearOverrides();
             controllerState.WsUpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             controllerState.Inventory = inventory;
+            controllerState.InventoryFingerprint = inventory.ComputeFingerprint();
         }
         controllerState.IsFetching = false;
         controllerState.TriggerPostFetch();
@@ -279,6 +280,144 @@ public partial class InventorySimulator
             Natives.CServerSideClientBase_ActivatePlayer.Hook(OnActivatePlayerPre, HookMode.Pre);
         else
             Natives.CServerSideClientBase_ActivatePlayer.Unhook(OnActivatePlayerPre, HookMode.Pre);
+    }
+
+    // ========================================================================
+    // Runtime: Round Win Case Reward
+    // ========================================================================
+
+    private static readonly Random _roundWinRandom = new();
+
+    public static int PickWeightedCaseId(int[] caseIds, float weightFactor)
+    {
+        var count = caseIds.Length;
+        var weights = new double[count];
+        double total = 0;
+
+        for (var i = 0; i < count; i++)
+        {
+            weights[i] = Math.Pow(weightFactor, i);
+            total += weights[i];
+        }
+
+        var roll = _roundWinRandom.NextDouble() * total;
+        double cumulative = 0;
+
+        for (var i = 0; i < count; i++)
+        {
+            cumulative += weights[i];
+            if (roll < cumulative)
+                return caseIds[i];
+        }
+
+        return caseIds[count - 1];
+    }
+
+    public static async void HandleRoundWinCaseReward(CCSPlayerController player)
+    {
+        if (!Api.HasApiKey())
+            return;
+
+        var chance = ConVars.RoundWinChance.Value;
+        if (chance <= 0f)
+            return;
+        if (chance < 1f && _roundWinRandom.NextDouble() >= chance)
+            return;
+
+        var casesRaw = ConVars.RoundWinCases.Value.Trim();
+        var userId = player.SteamID.ToString();
+
+        if (!string.IsNullOrEmpty(casesRaw))
+        {
+            var parsedIds = casesRaw
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => int.TryParse(s, out var id) ? id : -1)
+                .Where(id => id > 0)
+                .ToArray();
+
+            if (parsedIds.Length > 0)
+            {
+                var chosenId = PickWeightedCaseId(parsedIds, ConVars.RoundWinWeight.Value);
+                await Api.SendAddItem(userId, chosenId);
+                Server.NextWorldUpdate(() =>
+                {
+                    if (player.IsValid)
+                        player.PrintToChat(
+                            CSS.Plugin.Localizer["invsim.roundwin_case", ConVars.ChatPrefix.Value]
+                        );
+                });
+                return;
+            }
+        }
+
+        await Api.SendAddContainer(userId);
+        Server.NextWorldUpdate(() =>
+        {
+            if (player.IsValid)
+                player.PrintToChat(
+                    CSS.Plugin.Localizer["invsim.roundwin_case", ConVars.ChatPrefix.Value]
+                );
+        });
+    }
+
+    // ========================================================================
+    // Runtime: Auto-Reload (change detection)
+    // ========================================================================
+
+    public static async void HandleAutoReloadForPlayer(CCSPlayerController player)
+    {
+        if (!player.IsValid || player.IsBot)
+            return;
+        var state = player.GetState();
+        if (state.IsFetching || state.IsLoadedFromFile)
+            return;
+
+        // Step 1: cheap version check via a small JSON request.
+        var version = await Api.FetchInventoryVersion(player.SteamID);
+        if (version == null)
+            return;
+        if (state.InventoryVersion == version)
+            return;
+        state.InventoryVersion = version;
+
+        // Step 2: version changed — fetch full equipped data and compare visual fingerprint.
+        var response = await Api.FetchEquipped(player.SteamID);
+        if (response == null)
+            return;
+        var newInventory = new PlayerInventory(response);
+        var newFingerprint = newInventory.ComputeFingerprint();
+
+        // On first load just record the fingerprint; don't force a reload.
+        if (state.InventoryFingerprint == null)
+        {
+            state.InventoryFingerprint = newFingerprint;
+            return;
+        }
+        if (state.InventoryFingerprint == newFingerprint)
+            return;
+        state.InventoryFingerprint = newFingerprint;
+
+        var oldInventory = state.Inventory;
+        newInventory.InitializeWearOverrides();
+        if (oldInventory != null)
+            newInventory.WeaponWearCache = oldInventory.WeaponWearCache;
+        state.WsUpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        state.Inventory = newInventory;
+        Server.NextWorldUpdate(() =>
+        {
+            if (!player.IsValid)
+                return;
+            HandlePlayerInventoryLoad(player);
+            HandlePostPlayerInventoryRefresh(player, oldInventory);
+        });
+    }
+
+    public void HandleAutoReload()
+    {
+        if (!ConVars.IsAutoReloadEnabled.Value)
+            return;
+        foreach (var player in Utilities.GetPlayers().Where(p => !p.IsBot && p.IsValid))
+            HandleAutoReloadForPlayer(player);
     }
 
     // ========================================================================

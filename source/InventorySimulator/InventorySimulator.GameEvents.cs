@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 
 namespace InventorySimulator;
@@ -45,6 +46,20 @@ public partial class InventorySimulator
         var player = @event.Userid;
         if (player != null && !player.IsBot && player.IsValid)
             HandlePlayerMusicKitStatTrakIncrement(@event, player);
+        return HookResult.Continue;
+    }
+
+    public HookResult OnRoundEnd(EventRoundEnd @event, GameEventInfo _)
+    {
+        if (!ConVars.IsRoundWinEnabled.Value)
+            return HookResult.Continue;
+        var winnerTeam = @event.Winner;
+        foreach (
+            var player in Utilities
+                .GetPlayers()
+                .Where(p => !p.IsBot && p.IsValid && p.TeamNum == winnerTeam)
+        )
+            HandleRoundWinCaseReward(player);
         return HookResult.Continue;
     }
 }

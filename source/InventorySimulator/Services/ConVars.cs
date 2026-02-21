@@ -94,6 +94,48 @@ public static class ConVars
         true
     );
 
+    public static readonly FakeConVar<bool> IsRoundWinEnabled = new(
+        "invsim_roundwin_enabled",
+        "Give winning team players a weapon case at the end of each round.",
+        false
+    );
+
+    public static readonly FakeConVar<float> RoundWinChance = new(
+        "invsim_roundwin_chance",
+        "Probability (0.0–1.0) that a winning player receives a case each round.",
+        0.5f
+    );
+
+    public static readonly FakeConVar<string> RoundWinCases = new(
+        "invsim_roundwin_cases",
+        "Comma-separated list of weapon case item IDs ordered from oldest to newest. Newer cases are exponentially more likely to be chosen. Leave empty to let the API pick randomly.",
+        ""
+    );
+
+    public static readonly FakeConVar<float> RoundWinWeight = new(
+        "invsim_roundwin_weight",
+        "Exponential weight multiplier applied per position in invsim_roundwin_cases (e.g. 2.0 means each newer case is twice as likely as the previous one).",
+        2.0f
+    );
+
+    public static readonly FakeConVar<string> ChatPrefix = new(
+        "invsim_chat_prefix",
+        "Prefix displayed before plugin chat messages (e.g. '- + MyServer + -').",
+        "- + InventorySimulator + -"
+    );
+
+    public static readonly FakeConVar<bool> IsAutoReloadEnabled = new(
+        "invsim_autoreload_enabled",
+        "Automatically refresh player inventories when changes are detected on the website.",
+        false
+    );
+
+    public static readonly FakeConVar<int> AutoReloadInterval = new(
+        "invsim_autoreload_interval",
+        "How often (in seconds) to check each player's inventory for changes.",
+        15
+    );
+
     public static readonly FakeConVar<bool> IsFallbackTeam = new(
         "invsim_fallback_team",
         "Allow using skins from any team (prioritizes current team first).",

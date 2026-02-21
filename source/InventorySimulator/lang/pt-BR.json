@@ -7,5 +7,6 @@
   "invsim.spray_cooldown": "Você não pode grafitar agora. Aguarde {0} segundos.",
   "invsim.login_in_progress": "Tentando autenticar ao seu inventário...",
   "invsim.login": "Acesse {0} para ver seu inventário.",
-  "invsim.login_failed": "Não foi possível autenticar ao seu inventário, tente novamente mais tarde."
+  "invsim.login_failed": "Não foi possível autenticar ao seu inventário, tente novamente mais tarde.",
+  "invsim.roundwin_case": "{gold}{0}{white} Você recebeu uma caixa de arma por vencer a rodada!"
 }

@@ -77,6 +77,23 @@ public class Api
             : JsonSerializer.Deserialize<T>(responseContent);
     }
 
+    public static async Task<int?> FetchInventoryVersion(ulong steamId)
+    {
+        var url = GetUrl($"/api/inventory/{steamId}.json");
+        try
+        {
+            var response = await _httpClient.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<InventoryVersionResponse>(jsonContent);
+            return result?.Version;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static async Task<EquippedV4Response?> FetchEquipped(ulong steamId)
     {
         var url = GetUrl($"/api/equipped/v4/{steamId}.json");
@@ -121,5 +138,29 @@ public class Api
         var url = GetUrl("/api/sign-in");
         var request = new SignInRequest { ApiKey = ConVars.ApiKey.Value, UserId = userId };
         return await PostAsync<SignInUserResponse>(url, request);
+    }
+
+    public static async Task SendAddContainer(string userId)
+    {
+        var url = GetUrl("/api/add-container");
+        var request = new AddContainerRequest
+        {
+            ApiKey = ConVars.ApiKey.Value,
+            UserId = userId,
+            Weapon = true,
+        };
+        await PostAsync(url, request);
+    }
+
+    public static async Task SendAddItem(string userId, int itemId)
+    {
+        var url = GetUrl("/api/add-item");
+        var request = new AddItemRequest
+        {
+            ApiKey = ConVars.ApiKey.Value,
+            UserId = userId,
+            InventoryItem = new AddItemInventoryItem { Id = itemId },
+        };
+        await PostAsync(url, request);
     }
 }

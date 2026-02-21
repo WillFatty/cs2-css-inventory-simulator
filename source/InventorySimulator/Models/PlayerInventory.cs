@@ -83,6 +83,35 @@ public class PlayerInventory(EquippedV4Response data)
         return wear;
     }
 
+    private static string GetVisualKey(InventoryItem item)
+    {
+        var stickers = item.Stickers != null
+            ? string.Join("_", item.Stickers.Select(s => $"{s.Def},{s.Slot},{s.Wear},{s.X},{s.Y}"))
+            : string.Empty;
+        return $"{item.Uid}|{item.Def}|{item.Paint}|{item.Seed}|{item.Wear}|{item.Nametag}|{stickers}";
+    }
+
+    public int ComputeFingerprint()
+    {
+        var keys = new List<string>();
+        foreach (var item in _data.Agents.Values)
+            keys.Add(GetVisualKey(item));
+        foreach (var item in _data.Knives.Values)
+            keys.Add(GetVisualKey(item));
+        foreach (var item in _data.CTWeapons.Values)
+            keys.Add(GetVisualKey(item));
+        foreach (var item in _data.TWeapons.Values)
+            keys.Add(GetVisualKey(item));
+        foreach (var item in _data.Gloves.Values)
+            keys.Add(GetVisualKey(item));
+        if (_data.MusicKit != null)
+            keys.Add(GetVisualKey(_data.MusicKit));
+        if (_data.Graffiti != null)
+            keys.Add(GetVisualKey(_data.Graffiti));
+        keys.Sort();
+        return string.Join(",", keys).GetHashCode();
+    }
+
     public InventoryItem? GetItemForSlot(
         byte team,
         loadout_slot_t slot,
