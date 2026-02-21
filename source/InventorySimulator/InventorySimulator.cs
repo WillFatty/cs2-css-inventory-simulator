@@ -44,7 +44,7 @@ public partial class InventorySimulator : BasePlugin
     {
         _autoReloadTimer?.Kill();
         _autoReloadTimer = AddTimer(
-            Math.Max(5, ConVars.AutoReloadInterval.Value),
+            Math.Max(1, ConVars.AutoReloadInterval.Value),
             HandleAutoReload,
             TimerFlags.REPEAT
         );

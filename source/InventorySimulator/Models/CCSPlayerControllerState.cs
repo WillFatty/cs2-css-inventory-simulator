@@ -14,11 +14,11 @@ public class CCSPlayerControllerState(ulong steamId)
 {
     public ulong SteamID = steamId;
     public bool IsFetching = false;
+    public bool IsAutoReloading = false;
     public bool IsAuthenticating = false;
     public bool IsLoadedFromFile = false;
     public long WsUpdatedAt = 0;
     public long SprayUsedAt = 0;
-    public int? InventoryVersion = null;
     public int? InventoryFingerprint = null;
     public PlayerInventory? Inventory = Inventories.Get(steamId);
     public Timer? UseCmdTimer;

@@ -127,13 +127,13 @@ public static class ConVars
     public static readonly FakeConVar<bool> IsAutoReloadEnabled = new(
         "invsim_autoreload_enabled",
         "Automatically refresh player inventories when changes are detected on the website.",
-        false
+        true
     );
 
     public static readonly FakeConVar<int> AutoReloadInterval = new(
         "invsim_autoreload_interval",
-        "How often (in seconds) to check each player's inventory for changes.",
-        15
+        "How often (in seconds) to check each player's inventory for changes. Minimum: 1.",
+        1
     );
 
     public static readonly FakeConVar<bool> IsFallbackTeam = new(

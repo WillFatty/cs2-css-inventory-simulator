@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,20 @@ namespace InventorySimulator;
 public class Api
 {
     private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+
+    private static HttpRequestMessage NoCacheGet(string url) =>
+        new(HttpMethod.Get, url)
+        {
+            Headers =
+            {
+                CacheControl = new CacheControlHeaderValue
+                {
+                    NoCache = true,
+                    NoStore = true,
+                },
+                Pragma = { new NameValueHeaderValue("no-cache") },
+            },
+        };
 
     private const int MaxRetries = 3;
 
@@ -82,7 +97,7 @@ public class Api
         var url = GetUrl($"/api/inventory/{steamId}.json");
         try
         {
-            var response = await _httpClient.GetAsync(url);
+            var response = await _httpClient.SendAsync(NoCacheGet(url));
             response.EnsureSuccessStatusCode();
             var jsonContent = await response.Content.ReadAsStringAsync();
             var result = JsonSerializer.Deserialize<InventoryVersionResponse>(jsonContent);
@@ -100,7 +115,7 @@ public class Api
         for (var attempt = 1; attempt <= MaxRetries; attempt++)
             try
             {
-                var response = await _httpClient.GetAsync(url);
+                var response = await _httpClient.SendAsync(NoCacheGet(url));
                 response.EnsureSuccessStatusCode();
                 var jsonContent = await response.Content.ReadAsStringAsync();
                 return JsonSerializer.Deserialize<EquippedV4Response>(jsonContent);

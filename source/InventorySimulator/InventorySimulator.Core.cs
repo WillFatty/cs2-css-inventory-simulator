@@ -369,47 +369,46 @@ public partial class InventorySimulator
         if (!player.IsValid || player.IsBot)
             return;
         var state = player.GetState();
-        if (state.IsFetching || state.IsLoadedFromFile)
+        if (state.IsFetching || state.IsAutoReloading || state.IsLoadedFromFile)
             return;
-
-        // Step 1: cheap version check via a small JSON request.
-        var version = await Api.FetchInventoryVersion(player.SteamID);
-        if (version == null)
-            return;
-        if (state.InventoryVersion == version)
-            return;
-        state.InventoryVersion = version;
-
-        // Step 2: version changed — fetch full equipped data and compare visual fingerprint.
-        var response = await Api.FetchEquipped(player.SteamID);
-        if (response == null)
-            return;
-        var newInventory = new PlayerInventory(response);
-        var newFingerprint = newInventory.ComputeFingerprint();
-
-        // On first load just record the fingerprint; don't force a reload.
-        if (state.InventoryFingerprint == null)
+        state.IsAutoReloading = true;
+        try
         {
-            state.InventoryFingerprint = newFingerprint;
-            return;
-        }
-        if (state.InventoryFingerprint == newFingerprint)
-            return;
-        state.InventoryFingerprint = newFingerprint;
-
-        var oldInventory = state.Inventory;
-        newInventory.InitializeWearOverrides();
-        if (oldInventory != null)
-            newInventory.WeaponWearCache = oldInventory.WeaponWearCache;
-        state.WsUpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        state.Inventory = newInventory;
-        Server.NextWorldUpdate(() =>
-        {
-            if (!player.IsValid)
+            var response = await Api.FetchEquipped(player.SteamID);
+            if (response == null)
                 return;
-            HandlePlayerInventoryLoad(player);
-            HandlePostPlayerInventoryRefresh(player, oldInventory);
-        });
+            var newInventory = new PlayerInventory(response);
+            var newFingerprint = newInventory.ComputeFingerprint();
+
+            if (state.InventoryFingerprint == null)
+            {
+                state.InventoryFingerprint = newFingerprint;
+                return;
+            }
+            if (state.InventoryFingerprint == newFingerprint)
+                return;
+            state.InventoryFingerprint = newFingerprint;
+
+            var oldInventory = state.Inventory;
+            newInventory.InitializeWearOverrides();
+            if (oldInventory != null)
+                newInventory.WeaponWearCache = oldInventory.WeaponWearCache;
+            state.WsUpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            state.Inventory = newInventory;
+            Server.NextWorldUpdate(() =>
+            {
+                if (!player.IsValid)
+                    return;
+                HandlePlayerInventoryLoad(player);
+                player.RegiveAgent(newInventory, oldInventory);
+                player.RegiveGloves(newInventory, oldInventory);
+                player.RegiveWeapons(newInventory, oldInventory);
+            });
+        }
+        finally
+        {
+            state.IsAutoReloading = false;
+        }
     }
 
     public void HandleAutoReload()
