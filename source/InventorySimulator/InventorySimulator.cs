@@ -33,10 +33,13 @@ public partial class InventorySimulator : BasePlugin
         ConVars.File.ValueChanged += HandleFileChanged;
         ConVars.IsRequireInventory.ValueChanged += HandleIsRequireInventoryChanged;
         ConVars.AutoReloadInterval.ValueChanged += HandleAutoReloadIntervalChanged;
+        ConVars.UnboxPollInterval.ValueChanged += HandleUnboxPollIntervalChanged;
         HandleFileChanged(null, ConVars.File.Value);
         HandleIsRequireInventoryChanged(null, ConVars.IsRequireInventory.Value);
+        HandleUnboxPollIntervalChanged(null, ConVars.UnboxPollInterval.Value);
         StartAutoReloadTimer();
-        StartLastCaseOpeningPollTimer();
+        StartUnboxPollTimer();
+        StartUnboxBroadcastDrainTimer();
     }
 
     private CounterStrikeSharp.API.Modules.Timers.Timer? _autoReloadTimer;
@@ -56,14 +59,35 @@ public partial class InventorySimulator : BasePlugin
         StartAutoReloadTimer();
     }
 
-    private CounterStrikeSharp.API.Modules.Timers.Timer? _lastCaseOpeningPollTimer;
+    private CounterStrikeSharp.API.Modules.Timers.Timer? _unboxPollTimer;
 
-    private void StartLastCaseOpeningPollTimer()
+    private void HandleUnboxPollIntervalChanged(object? _, float value)
     {
-        _lastCaseOpeningPollTimer?.Kill();
-        _lastCaseOpeningPollTimer = AddTimer(
-            1f,
-            () => HandleLastCaseOpeningPoll(),
+        StartUnboxPollTimer();
+    }
+
+    private void StartUnboxPollTimer()
+    {
+        _unboxPollTimer?.Kill();
+        var interval = Math.Max(1f, ConVars.UnboxPollInterval.Value);
+        _unboxPollTimer = AddTimer(
+            interval,
+            () => HandleLastCaseOpeningAndTradeUpPoll(),
+            TimerFlags.REPEAT
+        );
+    }
+
+    private CounterStrikeSharp.API.Modules.Timers.Timer? _unboxBroadcastDrainTimer;
+
+    private void StartUnboxBroadcastDrainTimer()
+    {
+        _unboxBroadcastDrainTimer?.Kill();
+        _unboxBroadcastDrainTimer = AddTimer(
+            0.1f,
+            () =>
+            {
+                DrainOneUnboxBroadcast();
+            },
             TimerFlags.REPEAT
         );
     }

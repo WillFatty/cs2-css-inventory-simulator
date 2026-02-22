@@ -11,5 +11,7 @@
   "invsim.roundwin_case": "{gold}{0}{white} Você recebeu uma caixa de arma por vencer a rodada!",
   "invsim.last_case_join": "{green}{0}{white} abriu por último {1} e desbloqueou {2}!",
   "invsim.last_case_unbox_line1": "•• {yellow}{0}{white} abriu um container e encontrou: {2}◆ {2}{1}",
-  "invsim.last_case_unbox_line2": "  {1}{0}"
+  "invsim.last_case_unbox_line2": "  {1}{0}",
+  "invsim.last_stattrak_increment": "•• {yellow}{0}{white} obteve uma kill StatTrak™ com {2}{1}{white} ({3} kills)",
+  "invsim.last_tradeup_line1": "•• {yellow}{0}{white} completou um trade-up e recebeu: {2}◆ {2}{1}"
 }

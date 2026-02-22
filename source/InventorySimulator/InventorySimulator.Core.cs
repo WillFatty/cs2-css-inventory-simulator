@@ -13,7 +13,11 @@ namespace InventorySimulator;
 public partial class InventorySimulator
 {
     private static readonly ConcurrentDictionary<ulong, string> LastBroadcastedCaseOpenedAt = new();
+    private static readonly ConcurrentDictionary<ulong, string> LastBroadcastedTradeUpCompletedAt =
+        new();
     private static readonly ConcurrentDictionary<ulong, DateTime> PlayerJoinTimeUtc = new();
+    private static readonly ConcurrentQueue<string> PendingUnboxBroadcasts = new();
+    private int _unboxPollRoundRobinIndex;
 
     // ========================================================================
     // Connection & Initialization
@@ -45,10 +49,33 @@ public partial class InventorySimulator
         };
     }
 
-    public void HandleLastCaseOpeningPoll()
+    public void DrainOneUnboxBroadcast()
     {
-        foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
+        if (!PendingUnboxBroadcasts.TryDequeue(out var message))
+            return;
+        foreach (var p in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
+            p.PrintToChat(message);
+    }
+
+    public void HandleLastCaseOpeningAndTradeUpPoll()
+    {
+        var players = Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot).ToList();
+        if (players.Count == 0)
+            return;
+        var maxPerTick = Math.Max(1, ConVars.UnboxPollMaxPlayersPerTick.Value);
+        var start = _unboxPollRoundRobinIndex % players.Count;
+        _unboxPollRoundRobinIndex = (start + maxPerTick) % players.Count;
+        var toPoll = new List<CCSPlayerController>();
+        for (var i = 0; i < maxPerTick && i < players.Count; i++)
+        {
+            var idx = (start + i) % players.Count;
+            toPoll.Add(players[idx]);
+        }
+        foreach (var player in toPoll)
+        {
             _ = PollPlayerLastCaseOpeningAsync(player);
+            _ = PollPlayerLastTradeUpAsync(player);
+        }
     }
 
     private async Task PollPlayerLastCaseOpeningAsync(CCSPlayerController player)
@@ -72,8 +99,32 @@ public partial class InventorySimulator
             var itemName = opening.UnlockedItemName ?? "";
             var rarityColor = GetRarityChatColor(opening.Rarity);
             var message = Localizer["invsim.last_case_unbox_line1", opening.UserName, itemName, rarityColor].ToString();
-            foreach (var p in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
-                p.PrintToChat(message.ReplaceColorTags());
+            PendingUnboxBroadcasts.Enqueue(message.ReplaceColorTags());
+        });
+    }
+
+    private async Task PollPlayerLastTradeUpAsync(CCSPlayerController player)
+    {
+        var steamId = player.SteamID;
+        var tradeUp = await Api.FetchLastTradeUp(steamId.ToString());
+        if (tradeUp == null || string.IsNullOrEmpty(tradeUp.CompletedAt))
+            return;
+        var completedAt = tradeUp.CompletedAt;
+        if (!DateTime.TryParse(completedAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var completedAtUtc))
+            return;
+        if (!PlayerJoinTimeUtc.TryGetValue(steamId, out var joinTime) || completedAtUtc < joinTime)
+            return;
+        Server.NextWorldUpdate(() =>
+        {
+            if (!player.IsValid)
+                return;
+            if (LastBroadcastedTradeUpCompletedAt.TryGetValue(steamId, out var last) && last == completedAt)
+                return;
+            LastBroadcastedTradeUpCompletedAt[steamId] = completedAt;
+            var itemName = tradeUp.OutputItemName ?? "";
+            var rarityColor = GetRarityChatColor(tradeUp.Rarity);
+            var message = Localizer["invsim.last_tradeup_line1", tradeUp.UserName, itemName, rarityColor].ToString();
+            PendingUnboxBroadcasts.Enqueue(message.ReplaceColorTags());
         });
     }
 
@@ -483,6 +534,7 @@ public partial class InventorySimulator
     public static void HandleControllerDeleted(CCSPlayerController controller)
     {
         LastBroadcastedCaseOpenedAt.TryRemove(controller.SteamID, out _);
+        LastBroadcastedTradeUpCompletedAt.TryRemove(controller.SteamID, out _);
         PlayerJoinTimeUtc.TryRemove(controller.SteamID, out _);
         controller.RemoveState();
     }

@@ -148,6 +148,18 @@ public static class ConVars
         0
     );
 
+    public static readonly FakeConVar<float> UnboxPollInterval = new(
+        "invsim_unbox_poll_interval",
+        "Interval in seconds between polling for case openings and trade-ups. Higher = fewer API calls, slower to show new unboxes. Minimum 1.",
+        1f
+    );
+
+    public static readonly FakeConVar<int> UnboxPollMaxPlayersPerTick = new(
+        "invsim_unbox_poll_max_per_tick",
+        "Max players to poll for case/trade-up per tick (round-robin). Lower = gentler on server and API. Minimum 1.",
+        1
+    );
+
     public static void Initialize(BasePlugin plugin)
     {
         plugin.RegisterFakeConVars(typeof(ConVars));

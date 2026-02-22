@@ -195,4 +195,21 @@ public class Api
             return null;
         }
     }
+
+    public static async Task<LastTradeUpResponse?> FetchLastTradeUp(string userId)
+    {
+        var url = GetUrl($"/api/last-tradeup/{userId}.json");
+        try
+        {
+            var response = await _httpClient.SendAsync(NoCacheGet(url));
+            if (!response.IsSuccessStatusCode)
+                return null;
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<LastTradeUpResponse>(jsonContent);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }
