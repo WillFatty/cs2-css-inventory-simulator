@@ -3,13 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+using System.Collections.Concurrent;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Translations;
 
 namespace InventorySimulator;
 
 public partial class InventorySimulator
 {
+    private static readonly ConcurrentDictionary<ulong, string> LastBroadcastedCaseOpenedAt = new();
+    private static readonly ConcurrentDictionary<ulong, DateTime> PlayerJoinTimeUtc = new();
+
     // ========================================================================
     // Connection & Initialization
     // ========================================================================
@@ -18,6 +23,58 @@ public partial class InventorySimulator
     {
         player.Revalidate();
         HandlePlayerInventoryRefresh(player);
+    }
+
+    public void RecordPlayerJoinTime(CCSPlayerController player)
+    {
+        if (player.IsValid && !player.IsBot)
+            PlayerJoinTimeUtc[player.SteamID] = DateTime.UtcNow;
+    }
+
+    private static string GetRarityChatColor(string? rarity)
+    {
+        return rarity switch
+        {
+            "uncommon" => "{lightblue}",
+            "rare" => "{blue}",
+            "mythical" => "{purple}",
+            "legendary" => "{lightpurple}",
+            "ancient" => "{red}",
+            "immortal" => "{gold}",
+            _ => "{white}"
+        };
+    }
+
+    public void HandleLastCaseOpeningPoll()
+    {
+        foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
+            _ = PollPlayerLastCaseOpeningAsync(player);
+    }
+
+    private async Task PollPlayerLastCaseOpeningAsync(CCSPlayerController player)
+    {
+        var steamId = player.SteamID;
+        var opening = await Api.FetchLastCaseOpening(steamId.ToString());
+        if (opening == null || string.IsNullOrEmpty(opening.OpenedAt))
+            return;
+        var openedAt = opening.OpenedAt;
+        if (!DateTime.TryParse(openedAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var openedAtUtc))
+            return;
+        if (!PlayerJoinTimeUtc.TryGetValue(steamId, out var joinTime) || openedAtUtc < joinTime)
+            return;
+        Server.NextWorldUpdate(() =>
+        {
+            if (!player.IsValid)
+                return;
+            if (LastBroadcastedCaseOpenedAt.TryGetValue(steamId, out var last) && last == openedAt)
+                return;
+            LastBroadcastedCaseOpenedAt[steamId] = openedAt;
+            var itemName = opening.UnlockedItemName ?? "";
+            var rarityColor = GetRarityChatColor(opening.Rarity);
+            var message = Localizer["invsim.last_case_unbox_line1", opening.UserName, itemName, rarityColor].ToString();
+            foreach (var p in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
+                p.PrintToChat(message.ReplaceColorTags());
+        });
     }
 
     // ========================================================================
@@ -425,6 +482,8 @@ public partial class InventorySimulator
 
     public static void HandleControllerDeleted(CCSPlayerController controller)
     {
+        LastBroadcastedCaseOpenedAt.TryRemove(controller.SteamID, out _);
+        PlayerJoinTimeUtc.TryRemove(controller.SteamID, out _);
         controller.RemoveState();
     }
 }

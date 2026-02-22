@@ -22,7 +22,10 @@ public partial class InventorySimulator
     {
         var player = @event.Userid;
         if (player != null && !player.IsBot)
+        {
             HandlePlayerConnect(player);
+            RecordPlayerJoinTime(player);
+        }
         return HookResult.Continue;
     }
 

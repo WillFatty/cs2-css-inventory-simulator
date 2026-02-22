@@ -36,6 +36,7 @@ public partial class InventorySimulator : BasePlugin
         HandleFileChanged(null, ConVars.File.Value);
         HandleIsRequireInventoryChanged(null, ConVars.IsRequireInventory.Value);
         StartAutoReloadTimer();
+        StartLastCaseOpeningPollTimer();
     }
 
     private CounterStrikeSharp.API.Modules.Timers.Timer? _autoReloadTimer;
@@ -53,6 +54,18 @@ public partial class InventorySimulator : BasePlugin
     public void HandleAutoReloadIntervalChanged(object? _, int value)
     {
         StartAutoReloadTimer();
+    }
+
+    private CounterStrikeSharp.API.Modules.Timers.Timer? _lastCaseOpeningPollTimer;
+
+    private void StartLastCaseOpeningPollTimer()
+    {
+        _lastCaseOpeningPollTimer?.Kill();
+        _lastCaseOpeningPollTimer = AddTimer(
+            1f,
+            () => HandleLastCaseOpeningPoll(),
+            TimerFlags.REPEAT
+        );
     }
 
     public override void Unload(bool hotReload)

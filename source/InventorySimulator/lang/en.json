@@ -8,5 +8,8 @@
   "invsim.login_in_progress": "Trying to authenticate to your inventory...",
   "invsim.login": "Access {0} to view your inventory.",
   "invsim.login_failed": "Unable to authenticate to your inventory, please try again later.",
-  "invsim.roundwin_case": "{gold}{0}{white} You received a weapon case for winning the round!"
+  "invsim.roundwin_case": "{gold}{0}{white} You received a weapon case for winning the round!",
+  "invsim.last_case_join": "{green}{0}{white} last opened {1} and unboxed {2}!",
+  "invsim.last_case_unbox_line1": "•• {yellow}{0}{white} has opened a container and found: {2}◆ {2}{1}",
+  "invsim.last_case_unbox_line2": "  {1}{0}"
 }

@@ -8,5 +8,8 @@
   "invsim.login_in_progress": "正在尝试登录您的库存...",
   "invsim.login": "访问 {0} 以查看您的库存。",
   "invsim.login_failed": "无法登录您的库存，请稍后再试。",
-  "invsim.roundwin_case": "{gold}{0}{white} 您因赢得本局获得了一个武器箱！"
+  "invsim.roundwin_case": "{gold}{0}{white} 您因赢得本局获得了一个武器箱！",
+  "invsim.last_case_join": "{green}{0}{white} 上次打开了 {1}，开出了 {2}！",
+  "invsim.last_case_unbox_line1": "•• {yellow}{0}{white} 打开了容器并发现：{2}◆ {2}{1}",
+  "invsim.last_case_unbox_line2": "  {1}{0}"
 }

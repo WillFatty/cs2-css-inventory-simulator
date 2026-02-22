@@ -178,4 +178,21 @@ public class Api
         };
         await PostAsync(url, request);
     }
+
+    public static async Task<LastCaseOpeningResponse?> FetchLastCaseOpening(string userId)
+    {
+        var url = GetUrl($"/api/last-case-opening/{userId}.json");
+        try
+        {
+            var response = await _httpClient.SendAsync(NoCacheGet(url));
+            if (!response.IsSuccessStatusCode)
+                return null;
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<LastCaseOpeningResponse>(jsonContent);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }
