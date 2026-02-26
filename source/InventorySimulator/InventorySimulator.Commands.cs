@@ -12,10 +12,27 @@ namespace InventorySimulator;
 public partial class InventorySimulator
 {
     [ConsoleCommand("css_ws", "Refreshes player's inventory.")]
-    public void OnWSCommand(CCSPlayerController? player, CommandInfo _)
+    public void OnWSCommand(CCSPlayerController? player, CommandInfo commandInfo) =>
+        ExecuteInventoryRefreshCommand(player, commandInfo);
+
+    [ConsoleCommand("css_knife", "Refreshes player's inventory (same as !ws).")]
+    public void OnKnifeCommand(CCSPlayerController? player, CommandInfo commandInfo) =>
+        ExecuteInventoryRefreshCommand(player, commandInfo);
+
+    [ConsoleCommand("css_gloves", "Refreshes player's inventory (same as !ws).")]
+    public void OnGlovesCommand(CCSPlayerController? player, CommandInfo commandInfo) =>
+        ExecuteInventoryRefreshCommand(player, commandInfo);
+
+    [ConsoleCommand("css_agents", "Refreshes player's inventory (same as !ws).")]
+    public void OnAgentsCommand(CCSPlayerController? player, CommandInfo commandInfo) =>
+        ExecuteInventoryRefreshCommand(player, commandInfo);
+
+    private void ExecuteInventoryRefreshCommand(CCSPlayerController? player, CommandInfo _)
     {
         var url = UrlHelper.FormatUrl(ConVars.WsUrlPrintFormat.Value, ConVars.Url.Value);
-        player?.PrintToChat(Localizer["invsim.announce", url]);
+        var announceTemplate = Localizer["invsim.announce"].ToString();
+        var announceMessage = announceTemplate.Replace("{0}", url);
+        player?.PrintToChat(announceMessage);
         if (!ConVars.IsWsEnabled.Value || player == null)
             return;
         var controllerState = player.GetState();
