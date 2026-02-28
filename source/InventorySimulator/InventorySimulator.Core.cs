@@ -233,7 +233,7 @@ public partial class InventorySimulator
                 weapon.AttributeManager.Item.ItemDefinitionIndex,
                 isFallbackTeam
             );
-        if (item == null || item.Stattrak == null || item.Uid == null)
+        if (item == null || item.Uid == null || item.Stattrak == null || item.Stattrak.Value < 0)
             return;
         item.Stattrak += 1;
         var statTrak = TypeHelper.ViewAs<int, float>(item.Stattrak.Value);

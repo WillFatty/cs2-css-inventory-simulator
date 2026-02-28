@@ -69,6 +69,20 @@ public partial class InventorySimulator
         }
     }
 
+    [ConsoleCommand("css_nocases", "Toggle round-win case drops for yourself.")]
+    public void OnNoCasesCommand(CCSPlayerController? player, CommandInfo _)
+    {
+        if (player == null || player.IsBot)
+            return;
+        var state = player.GetState();
+        state.IsRoundWinCasesDisabled = !state.IsRoundWinCasesDisabled;
+        player.PrintToChat(
+            state.IsRoundWinCasesDisabled
+                ? Localizer["invsim.nocases_disabled"]
+                : Localizer["invsim.nocases_enabled"]
+        );
+    }
+
     [ConsoleCommand("css_wslogin", "Authenticate player to Inventory Simulator.")]
     public void OnWsloginCommand(CCSPlayerController? player, CommandInfo _)
     {

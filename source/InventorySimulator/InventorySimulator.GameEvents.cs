@@ -62,7 +62,10 @@ public partial class InventorySimulator
                 .GetPlayers()
                 .Where(p => !p.IsBot && p.IsValid && p.TeamNum == winnerTeam)
         )
-            HandleRoundWinCaseReward(player);
+        {
+            if (!player.GetState().IsRoundWinCasesDisabled)
+                HandleRoundWinCaseReward(player);
+        }
         return HookResult.Continue;
     }
 }

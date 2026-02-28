@@ -23,6 +23,7 @@ public class CCSPlayerControllerState(ulong steamId)
     public PlayerInventory? Inventory = Inventories.Get(steamId);
     public Timer? UseCmdTimer;
     public bool IsUseCmdBlocked = false;
+    public bool IsRoundWinCasesDisabled = false;
     public Action? PostFetchCallback;
 
     private static readonly ConcurrentDictionary<

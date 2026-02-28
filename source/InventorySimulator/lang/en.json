@@ -9,6 +9,8 @@
   "invsim.login": "{grey}- {gold}+ HexiumCS2 {gold}+ {grey}- Access {0} to view your inventory.",
   "invsim.login_failed": "{grey}- {gold}+ HexiumCS2 {gold}+ {grey}- Unable to authenticate to your inventory, please try again later.",
   "invsim.roundwin_case": "{grey}- {gold}+ HexiumCS2 {gold}+ {grey}- You received a weapon case for winning the round!",
+  "invsim.nocases_disabled": "Round-win case drops are now disabled for you. Use !nocases again to re-enable.",
+  "invsim.nocases_enabled": "Round-win case drops are now enabled for you.",
   "invsim.last_case_join": "{green}{0}{white} last opened {1} and unboxed {2}!",
   "invsim.last_case_unbox_line1": "•• {yellow}{0}{white} has opened a container and found: {2}◆ {2}{1}",
   "invsim.last_case_unbox_line2": "  {1}{0}",
