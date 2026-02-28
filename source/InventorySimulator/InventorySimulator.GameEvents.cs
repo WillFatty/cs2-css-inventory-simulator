@@ -25,6 +25,7 @@ public partial class InventorySimulator
         {
             HandlePlayerConnect(player);
             RecordPlayerJoinTime(player);
+            player.GetState().IsRoundWinCasesDisabled = NoCasesPersistence.IsOptedOut(player.SteamID);
         }
         return HookResult.Continue;
     }

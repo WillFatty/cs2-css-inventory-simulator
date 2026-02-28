@@ -34,6 +34,7 @@ public partial class InventorySimulator : BasePlugin
         ConVars.IsRequireInventory.ValueChanged += HandleIsRequireInventoryChanged;
         ConVars.AutoReloadInterval.ValueChanged += HandleAutoReloadIntervalChanged;
         ConVars.UnboxPollInterval.ValueChanged += HandleUnboxPollIntervalChanged;
+        NoCasesPersistence.Load();
         HandleFileChanged(null, ConVars.File.Value);
         HandleIsRequireInventoryChanged(null, ConVars.IsRequireInventory.Value);
         HandleUnboxPollIntervalChanged(null, ConVars.UnboxPollInterval.Value);

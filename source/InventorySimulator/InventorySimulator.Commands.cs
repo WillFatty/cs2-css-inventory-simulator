@@ -69,15 +69,15 @@ public partial class InventorySimulator
         }
     }
 
-    [ConsoleCommand("css_nocases", "Toggle round-win case drops for yourself.")]
+    [ConsoleCommand("css_nocases", "Toggle round-win case drops for yourself (saved across sessions).")]
     public void OnNoCasesCommand(CCSPlayerController? player, CommandInfo _)
     {
         if (player == null || player.IsBot)
             return;
-        var state = player.GetState();
-        state.IsRoundWinCasesDisabled = !state.IsRoundWinCasesDisabled;
+        var isNowDisabled = NoCasesPersistence.Toggle(player.SteamID);
+        player.GetState().IsRoundWinCasesDisabled = isNowDisabled;
         player.PrintToChat(
-            state.IsRoundWinCasesDisabled
+            isNowDisabled
                 ? Localizer["invsim.nocases_disabled"]
                 : Localizer["invsim.nocases_enabled"]
         );
