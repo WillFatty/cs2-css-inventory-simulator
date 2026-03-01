@@ -13,7 +13,12 @@ namespace InventorySimulator;
 
 public class Api
 {
-    private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private static readonly HttpClient _httpClient = new(
+        new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All }
+    )
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
 
     private static HttpRequestMessage NoCacheGet(string url) =>
         new(HttpMethod.Get, url)
@@ -106,6 +111,24 @@ public class Api
         catch
         {
             return null;
+        }
+    }
+
+    public static async Task<long> FetchEquippedVersion(ulong steamId)
+    {
+        var url = GetUrl($"/api/equipped/v4/{steamId}/version.json");
+        try
+        {
+            var response = await _httpClient.SendAsync(NoCacheGet(url));
+            if (!response.IsSuccessStatusCode)
+                return 0;
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<EquippedVersionResponse>(jsonContent);
+            return result?.SyncedAt ?? 0;
+        }
+        catch
+        {
+            return 0;
         }
     }
 
@@ -206,6 +229,31 @@ public class Api
                 return null;
             var jsonContent = await response.Content.ReadAsStringAsync();
             return JsonSerializer.Deserialize<LastTradeUpResponse>(jsonContent);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static readonly JsonSerializerOptions SnapshotJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    public static async Task<Dictionary<string, PluginSnapshotUserEntry>?> FetchPluginSnapshot(IEnumerable<string> userIds)
+    {
+        var ids = string.Join(",", userIds);
+        if (string.IsNullOrEmpty(ids))
+            return new Dictionary<string, PluginSnapshotUserEntry>();
+        var url = GetUrl($"/api/plugin-snapshot.json?userIds={Uri.EscapeDataString(ids)}");
+        try
+        {
+            var response = await _httpClient.SendAsync(NoCacheGet(url));
+            if (!response.IsSuccessStatusCode)
+                return null;
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<Dictionary<string, PluginSnapshotUserEntry>>(jsonContent, SnapshotJsonOptions);
         }
         catch
         {

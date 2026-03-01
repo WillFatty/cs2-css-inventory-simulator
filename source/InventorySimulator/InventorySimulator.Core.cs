@@ -17,7 +17,6 @@ public partial class InventorySimulator
         new();
     private static readonly ConcurrentDictionary<ulong, DateTime> PlayerJoinTimeUtc = new();
     private static readonly ConcurrentQueue<string> PendingUnboxBroadcasts = new();
-    private int _unboxPollRoundRobinIndex;
 
     // ========================================================================
     // Connection & Initialization
@@ -62,70 +61,108 @@ public partial class InventorySimulator
         var players = Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot).ToList();
         if (players.Count == 0)
             return;
-        var maxPerTick = Math.Max(1, ConVars.UnboxPollMaxPlayersPerTick.Value);
-        var start = _unboxPollRoundRobinIndex % players.Count;
-        _unboxPollRoundRobinIndex = (start + maxPerTick) % players.Count;
-        var toPoll = new List<CCSPlayerController>();
-        for (var i = 0; i < maxPerTick && i < players.Count; i++)
-        {
-            var idx = (start + i) % players.Count;
-            toPoll.Add(players[idx]);
-        }
-        foreach (var player in toPoll)
-        {
-            _ = PollPlayerLastCaseOpeningAsync(player);
-            _ = PollPlayerLastTradeUpAsync(player);
-        }
+        _ = ProcessPluginSnapshotAsync(players);
     }
 
-    private async Task PollPlayerLastCaseOpeningAsync(CCSPlayerController player)
+    private async Task ProcessPluginSnapshotAsync(List<CCSPlayerController> toPoll)
     {
-        var steamId = player.SteamID;
-        var opening = await Api.FetchLastCaseOpening(steamId.ToString());
+        var steamIds = toPoll.Select(p => p.SteamID.ToString()).ToList();
+        var snapshot = await Api.FetchPluginSnapshot(steamIds);
+        if (snapshot == null)
+            return;
+        Server.NextWorldUpdate(() =>
+        {
+            foreach (var player in toPoll)
+            {
+                if (!player.IsValid)
+                    continue;
+                var steamIdStr = player.SteamID.ToString();
+                if (!snapshot.TryGetValue(steamIdStr, out var entry) || entry == null)
+                    continue;
+                ProcessCaseOpeningFromSnapshot(player, entry);
+                ProcessTradeUpFromSnapshot(player, entry);
+                ProcessEquippedFromSnapshot(player, entry);
+            }
+        });
+    }
+
+    private void ProcessCaseOpeningFromSnapshot(CCSPlayerController player, PluginSnapshotUserEntry entry)
+    {
+        var opening = entry.LastCaseOpening;
         if (opening == null || string.IsNullOrEmpty(opening.OpenedAt))
             return;
+        var steamId = player.SteamID;
         var openedAt = opening.OpenedAt;
         if (!DateTime.TryParse(openedAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var openedAtUtc))
             return;
         if (!PlayerJoinTimeUtc.TryGetValue(steamId, out var joinTime) || openedAtUtc < joinTime)
             return;
-        Server.NextWorldUpdate(() =>
-        {
-            if (!player.IsValid)
-                return;
-            if (LastBroadcastedCaseOpenedAt.TryGetValue(steamId, out var last) && last == openedAt)
-                return;
-            LastBroadcastedCaseOpenedAt[steamId] = openedAt;
-            var itemName = opening.UnlockedItemName ?? "";
-            var rarityColor = GetRarityChatColor(opening.Rarity);
-            var message = Localizer["invsim.last_case_unbox_line1", opening.UserName, itemName, rarityColor].ToString();
-            PendingUnboxBroadcasts.Enqueue(message.ReplaceColorTags());
-        });
+        if (LastBroadcastedCaseOpenedAt.TryGetValue(steamId, out var last) && last == openedAt)
+            return;
+        LastBroadcastedCaseOpenedAt[steamId] = openedAt;
+        var itemName = opening.UnlockedItemName ?? "";
+        var rarityColor = GetRarityChatColor(opening.Rarity);
+        var message = Localizer["invsim.last_case_unbox_line1", opening.UserName, itemName, rarityColor].ToString();
+        PendingUnboxBroadcasts.Enqueue(message.ReplaceColorTags());
     }
 
-    private async Task PollPlayerLastTradeUpAsync(CCSPlayerController player)
+    private void ProcessTradeUpFromSnapshot(CCSPlayerController player, PluginSnapshotUserEntry entry)
     {
-        var steamId = player.SteamID;
-        var tradeUp = await Api.FetchLastTradeUp(steamId.ToString());
+        var tradeUp = entry.LastTradeUp;
         if (tradeUp == null || string.IsNullOrEmpty(tradeUp.CompletedAt))
             return;
+        var steamId = player.SteamID;
         var completedAt = tradeUp.CompletedAt;
         if (!DateTime.TryParse(completedAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var completedAtUtc))
             return;
         if (!PlayerJoinTimeUtc.TryGetValue(steamId, out var joinTime) || completedAtUtc < joinTime)
             return;
-        Server.NextWorldUpdate(() =>
+        if (LastBroadcastedTradeUpCompletedAt.TryGetValue(steamId, out var last) && last == completedAt)
+            return;
+        LastBroadcastedTradeUpCompletedAt[steamId] = completedAt;
+        var itemName = tradeUp.OutputItemName ?? "";
+        var rarityColor = GetRarityChatColor(tradeUp.Rarity);
+        var message = Localizer["invsim.last_tradeup_line1", tradeUp.UserName, itemName, rarityColor].ToString();
+        PendingUnboxBroadcasts.Enqueue(message.ReplaceColorTags());
+    }
+
+    private void ProcessEquippedFromSnapshot(CCSPlayerController player, PluginSnapshotUserEntry entry)
+    {
+        if (entry.Equipped == null)
+            return;
+        var state = player.GetState();
+        if (state.IsFetching || state.IsLoadedFromFile)
+            return;
+        var newInventory = new PlayerInventory(entry.Equipped);
+        var newFingerprint = newInventory.ComputeFingerprint();
+        if (entry.SyncedAt == state.LastEquippedSyncedAt && state.LastEquippedSyncedAt != 0)
         {
-            if (!player.IsValid)
+            if (state.InventoryFingerprint == newFingerprint)
                 return;
-            if (LastBroadcastedTradeUpCompletedAt.TryGetValue(steamId, out var last) && last == completedAt)
-                return;
-            LastBroadcastedTradeUpCompletedAt[steamId] = completedAt;
-            var itemName = tradeUp.OutputItemName ?? "";
-            var rarityColor = GetRarityChatColor(tradeUp.Rarity);
-            var message = Localizer["invsim.last_tradeup_line1", tradeUp.UserName, itemName, rarityColor].ToString();
-            PendingUnboxBroadcasts.Enqueue(message.ReplaceColorTags());
-        });
+        }
+        if (state.InventoryFingerprint == null)
+        {
+            state.InventoryFingerprint = newFingerprint;
+            state.LastEquippedSyncedAt = entry.SyncedAt;
+            return;
+        }
+        if (state.InventoryFingerprint == newFingerprint)
+        {
+            state.LastEquippedSyncedAt = entry.SyncedAt;
+            return;
+        }
+        var oldInventory = state.Inventory;
+        newInventory.InitializeWearOverrides();
+        if (oldInventory != null)
+            newInventory.WeaponWearCache = oldInventory.WeaponWearCache;
+        state.WsUpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        state.Inventory = newInventory;
+        state.InventoryFingerprint = newFingerprint;
+        state.LastEquippedSyncedAt = entry.SyncedAt;
+        HandlePlayerInventoryLoad(player);
+        player.RegiveAgent(newInventory, oldInventory);
+        player.RegiveGloves(newInventory, oldInventory);
+        player.RegiveWeapons(newInventory, oldInventory);
     }
 
     // ========================================================================
@@ -154,6 +191,7 @@ public partial class InventorySimulator
             controllerState.WsUpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             controllerState.Inventory = inventory;
             controllerState.InventoryFingerprint = inventory.ComputeFingerprint();
+            controllerState.LastEquippedSyncedAt = await Api.FetchEquippedVersion(player.SteamID);
         }
         controllerState.IsFetching = false;
         controllerState.TriggerPostFetch();
@@ -482,6 +520,9 @@ public partial class InventorySimulator
         state.IsAutoReloading = true;
         try
         {
+            var version = await Api.FetchEquippedVersion(player.SteamID);
+            if (version == state.LastEquippedSyncedAt && state.LastEquippedSyncedAt != 0)
+                return;
             var response = await Api.FetchEquipped(player.SteamID);
             if (response == null)
                 return;
@@ -491,10 +532,14 @@ public partial class InventorySimulator
             if (state.InventoryFingerprint == null)
             {
                 state.InventoryFingerprint = newFingerprint;
+                state.LastEquippedSyncedAt = version;
                 return;
             }
             if (state.InventoryFingerprint == newFingerprint)
+            {
+                state.LastEquippedSyncedAt = version;
                 return;
+            }
             state.InventoryFingerprint = newFingerprint;
 
             var oldInventory = state.Inventory;
@@ -503,6 +548,7 @@ public partial class InventorySimulator
                 newInventory.WeaponWearCache = oldInventory.WeaponWearCache;
             state.WsUpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             state.Inventory = newInventory;
+            state.LastEquippedSyncedAt = version;
             Server.NextWorldUpdate(() =>
             {
                 if (!player.IsValid)

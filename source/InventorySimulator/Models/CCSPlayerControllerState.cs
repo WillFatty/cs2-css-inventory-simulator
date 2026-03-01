@@ -20,6 +20,7 @@ public class CCSPlayerControllerState(ulong steamId)
     public long WsUpdatedAt = 0;
     public long SprayUsedAt = 0;
     public int? InventoryFingerprint = null;
+    public long LastEquippedSyncedAt = 0;
     public PlayerInventory? Inventory = Inventories.Get(steamId);
     public Timer? UseCmdTimer;
     public bool IsUseCmdBlocked = false;

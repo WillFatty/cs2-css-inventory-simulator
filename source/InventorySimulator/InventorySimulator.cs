@@ -32,32 +32,13 @@ public partial class InventorySimulator : BasePlugin
         Natives.CCSPlayerInventory_GetItemInLoadout.Hook(GetItemInLoadout, HookMode.Post);
         ConVars.File.ValueChanged += HandleFileChanged;
         ConVars.IsRequireInventory.ValueChanged += HandleIsRequireInventoryChanged;
-        ConVars.AutoReloadInterval.ValueChanged += HandleAutoReloadIntervalChanged;
         ConVars.UnboxPollInterval.ValueChanged += HandleUnboxPollIntervalChanged;
         NoCasesPersistence.Load();
         HandleFileChanged(null, ConVars.File.Value);
         HandleIsRequireInventoryChanged(null, ConVars.IsRequireInventory.Value);
         HandleUnboxPollIntervalChanged(null, ConVars.UnboxPollInterval.Value);
-        StartAutoReloadTimer();
         StartUnboxPollTimer();
         StartUnboxBroadcastDrainTimer();
-    }
-
-    private CounterStrikeSharp.API.Modules.Timers.Timer? _autoReloadTimer;
-
-    private void StartAutoReloadTimer()
-    {
-        _autoReloadTimer?.Kill();
-        _autoReloadTimer = AddTimer(
-            Math.Max(1, ConVars.AutoReloadInterval.Value),
-            HandleAutoReload,
-            TimerFlags.REPEAT
-        );
-    }
-
-    public void HandleAutoReloadIntervalChanged(object? _, int value)
-    {
-        StartAutoReloadTimer();
     }
 
     private CounterStrikeSharp.API.Modules.Timers.Timer? _unboxPollTimer;
