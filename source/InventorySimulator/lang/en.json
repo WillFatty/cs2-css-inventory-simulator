@@ -11,6 +11,8 @@
   "invsim.roundwin_case": "{grey}- {gold}+ HexiumCS2 {gold}+ {grey}- You received a weapon case for winning the round!",
   "invsim.nocases_disabled": "{grey}- {gold}+ HexiumCS2 {gold}+ {grey}- Round-win case drops are now disabled for you. Use !nocases again to re-enable.",
   "invsim.nocases_enabled": "{grey}- {gold}+ HexiumCS2 {gold}+ {grey}- Round-win case drops are now enabled for you.",
+  "invsim.hideunbox_disabled": "{grey}- {gold}+ HexiumCS2 {gold}+ {grey}- Case opening and trade-up messages are now hidden for you. Use !hideunbox again to show them.",
+  "invsim.hideunbox_enabled": "{grey}- {gold}+ HexiumCS2 {gold}+ {grey}- Case opening and trade-up messages are now visible for you.",
   "invsim.last_case_join": "{green}{0}{white} last opened {1} and unboxed {2}!",
   "invsim.last_case_unbox_line1": "•• {yellow}{0}{white} has opened a container and found: {2}◆ {2}{1}",
   "invsim.last_case_unbox_line2": "  {1}{0}",

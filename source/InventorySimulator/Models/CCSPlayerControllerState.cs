@@ -25,6 +25,7 @@ public class CCSPlayerControllerState(ulong steamId)
     public Timer? UseCmdTimer;
     public bool IsUseCmdBlocked = false;
     public bool IsRoundWinCasesDisabled = false;
+    public bool HideUnboxTradeUpMessages = false;
     public Action? PostFetchCallback;
 
     private static readonly ConcurrentDictionary<

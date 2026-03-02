@@ -83,6 +83,20 @@ public partial class InventorySimulator
         );
     }
 
+    [ConsoleCommand("css_hideunbox", "Toggle case opening and trade-up chat messages for yourself (this session only).")]
+    public void OnHideUnboxCommand(CCSPlayerController? player, CommandInfo _)
+    {
+        if (player == null || player.IsBot)
+            return;
+        var state = player.GetState();
+        state.HideUnboxTradeUpMessages = !state.HideUnboxTradeUpMessages;
+        player.PrintToChat(
+            state.HideUnboxTradeUpMessages
+                ? Localizer["invsim.hideunbox_disabled"]
+                : Localizer["invsim.hideunbox_enabled"]
+        );
+    }
+
     [ConsoleCommand("css_wslogin", "Authenticate player to Inventory Simulator.")]
     public void OnWsloginCommand(CCSPlayerController? player, CommandInfo _)
     {

@@ -52,7 +52,7 @@ public partial class InventorySimulator
     {
         if (!PendingUnboxBroadcasts.TryDequeue(out var message))
             return;
-        foreach (var p in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
+        foreach (var p in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot && !p.GetState().HideUnboxTradeUpMessages))
             p.PrintToChat(message);
     }
 
