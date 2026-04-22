@@ -27,6 +27,7 @@ public partial class InventorySimulator : BasePlugin
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeathPre);
         RegisterEventHandler<EventRoundMvp>(OnRoundMvpPre);
         RegisterEventHandler<EventRoundEnd>(OnRoundEnd, HookMode.Post);
+        RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect, HookMode.Post);
         Natives.CCSPlayerController_ProcessUsercmds.Hook(OnProcessUsercmds, HookMode.Post);
         VirtualFunctions.GiveNamedItemFunc.Hook(OnGiveNamedItemPre, HookMode.Pre);
         Natives.CCSPlayerInventory_GetItemInLoadout.Hook(GetItemInLoadout, HookMode.Post);

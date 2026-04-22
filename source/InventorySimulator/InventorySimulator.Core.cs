@@ -257,9 +257,10 @@ public partial class InventorySimulator
         if (
             weapon == null
             || !weapon.HasCustomItemID()
+            || !ulong.TryParse(weaponItemId, out var parsedItemId)
             || weapon.AttributeManager.Item.AccountID
                 != new CSteamID(player.SteamID).GetAccountID().m_AccountID
-            || weapon.AttributeManager.Item.ItemID != ulong.Parse(weaponItemId)
+            || weapon.AttributeManager.Item.ItemID != parsedItemId
         )
             return;
         var inventory = player.GetState().Inventory;
@@ -271,7 +272,7 @@ public partial class InventorySimulator
                 weapon.AttributeManager.Item.ItemDefinitionIndex,
                 isFallbackTeam
             );
-        if (item == null || item.Uid == null || item.Stattrak == null || item.Stattrak.Value < 0)
+        if (item == null || item.Uid == null || item.Stattrak == null || item.Stattrak < 0)
             return;
         item.Stattrak += 1;
         var statTrak = TypeHelper.ViewAs<int, float>(item.Stattrak.Value);

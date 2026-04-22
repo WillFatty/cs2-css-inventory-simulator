@@ -69,4 +69,12 @@ public partial class InventorySimulator
         }
         return HookResult.Continue;
     }
+
+    public HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo _)
+    {
+        var player = @event.Userid;
+        if (player != null && !player.IsBot)
+            player.HandleDisconnect();
+        return HookResult.Continue;
+    }
 }
