@@ -53,14 +53,39 @@ public class CCSPlayerControllerState(ulong steamId)
         var key = (SteamID, team, slot);
         if (_econItemViewManager.TryGetValue(key, out var ptr))
         {
-            var existingItemView = new CEconItemView(ptr);
-            existingItemView.ApplyAttributes(item, (loadout_slot_t)slot, SteamID);
+            try
+            {
+                var existingItemView = new CEconItemView(ptr);
+                existingItemView.ApplyAttributes(item, (loadout_slot_t)slot, SteamID);
+            }
+            catch
+            {
+                if (copyFrom != nint.Zero)
+                    return copyFrom;
+            }
             return ptr;
         }
-        var itemView = SchemaHelper.CreateCEconItemView(copyFrom);
-        itemView.ApplyAttributes(item, (loadout_slot_t)slot, SteamID);
-        _econItemViewManager[key] = itemView.Handle;
-        return itemView.Handle;
+        try
+        {
+            var itemView = SchemaHelper.CreateCEconItemView(copyFrom);
+            itemView.ApplyAttributes(item, (loadout_slot_t)slot, SteamID);
+            _econItemViewManager[key] = itemView.Handle;
+            return itemView.Handle;
+        }
+        catch
+        {
+            if (copyFrom != nint.Zero)
+            {
+                try
+                {
+                    var copyView = new CEconItemView(copyFrom);
+                    copyView.ApplyAttributes(item, (loadout_slot_t)slot, SteamID);
+                }
+                catch { }
+                return copyFrom;
+            }
+            return nint.Zero;
+        }
     }
 
     public void ClearEconItemView()

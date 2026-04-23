@@ -64,14 +64,15 @@ public partial class InventorySimulator
                     ConVars.IsFallbackTeam.Value
                 );
                 if (item != null)
-                    hook.SetParam(
-                        3,
-                        controllerState.GetEconItemView(
-                            controller.TeamNum,
-                            (int)itemDef.DefaultLoadoutSlot,
-                            item
-                        )
+                {
+                    var customView = controllerState.GetEconItemView(
+                        controller.TeamNum,
+                        (int)itemDef.DefaultLoadoutSlot,
+                        item
                     );
+                    if (customView != nint.Zero)
+                        hook.SetParam(3, customView);
+                }
             }
         }
         return HookResult.Continue;
@@ -101,8 +102,12 @@ public partial class InventorySimulator
         );
         if (item != null)
         {
-            hook.SetReturn(controllerState.GetEconItemView(team, slot, item, itemView.Handle));
-            return HookResult.Changed;
+            var customView = controllerState.GetEconItemView(team, slot, item, itemView.Handle);
+            if (customView != nint.Zero)
+            {
+                hook.SetReturn(customView);
+                return HookResult.Changed;
+            }
         }
         return HookResult.Continue;
     }
