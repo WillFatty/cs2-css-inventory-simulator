@@ -89,6 +89,7 @@ public static class CCSPlayerControllerExtensions
             {
                 var inventory = new PlayerInventory(response);
                 inventory.InitializeWearOverrides();
+                controllerState.ClearEconItemView();
                 controllerState.WsUpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 controllerState.Inventory = inventory;
                 controllerState.InventoryFingerprint = inventory.ComputeFingerprint();
@@ -257,6 +258,7 @@ public static class CCSPlayerControllerExtensions
             if (pawn == null || weaponServices == null)
                 return;
             var activeDesignerName = weaponServices.ActiveWeapon.Value?.DesignerName;
+            var schema = SchemaHelper.GetItemSchema();
             var targets = new List<(string, string, int, int, bool, gear_slot_t)>();
             foreach (var handle in weaponServices.MyWeapons)
             {
@@ -276,22 +278,56 @@ public static class CCSPlayerControllerExtensions
                 {
                     var entityDef = weapon.AttributeManager.Item.ItemDefinitionIndex;
                     var isFallbackTeam = ConVars.IsFallbackTeam.Value;
-                    var oldItem =
-                        data.GearSlot is gear_slot_t.GEAR_SLOT_KNIFE
-                            ? oldInventory?.GetKnife(self.TeamNum, isFallbackTeam)
-                            : oldInventory?.GetWeapon(self.TeamNum, entityDef, isFallbackTeam);
-                    var item =
-                        data.GearSlot is gear_slot_t.GEAR_SLOT_KNIFE
-                            ? inventory.GetKnife(self.TeamNum, isFallbackTeam)
-                            : inventory.GetWeapon(self.TeamNum, entityDef, isFallbackTeam);
-                    if (oldItem == item)
+                    var isKnife = data.GearSlot is gear_slot_t.GEAR_SLOT_KNIFE;
+                    ushort? loadoutDef = null;
+                    var itemDef = schema?.GetItemDefinition(entityDef);
+                    if (ConVars.IsLoadoutEnabled.Value && itemDef != null)
+                    {
+                        loadoutDef = inventory.GetLoadoutDef(
+                            self.TeamNum,
+                            isKnife
+                                ? loadout_slot_t.LOADOUT_SLOT_MELEE
+                                : itemDef.DefaultLoadoutSlot
+                        );
+                    }
+                    var effectiveDef = loadoutDef ?? entityDef;
+                    var weaponTypeChanged =
+                        loadoutDef != null && loadoutDef.Value != entityDef;
+                    var oldItem = isKnife
+                        ? oldInventory?.GetKnife(self.TeamNum, isFallbackTeam)
+                        : oldInventory?.GetWeapon(self.TeamNum, entityDef, isFallbackTeam);
+                    var item = isKnife
+                        ? inventory.GetKnife(self.TeamNum, isFallbackTeam)
+                        : inventory.GetWeapon(self.TeamNum, effectiveDef, isFallbackTeam);
+                    // When a loadout is active, always re-give matched slots so the
+                    // entity does not keep the previously selected (non-loadout) paint.
+                    var loadoutActive =
+                        itemDef != null
+                        && inventory.GetLoadoutDef(
+                            self.TeamNum,
+                            isKnife
+                                ? loadout_slot_t.LOADOUT_SLOT_MELEE
+                                : itemDef.DefaultLoadoutSlot
+                        ) != null;
+                    if (oldItem == item && !weaponTypeChanged && !loadoutActive)
                         continue;
+                    var giveDesignerName = weapon.GetDesignerName();
+                    if (weaponTypeChanged)
+                    {
+                        var loadoutItemDef = schema?.GetItemDefinition(loadoutDef!.Value);
+                        var loadoutName = loadoutItemDef?.DefinitionName;
+                        if (string.IsNullOrEmpty(loadoutName))
+                            continue;
+                        giveDesignerName = ItemHelper.IsMeleeDesignerName(loadoutName)
+                            ? "weapon_knife"
+                            : loadoutName;
+                    }
                     var clip = weapon.Clip1;
                     var reserve = weapon.ReserveAmmo[0];
                     targets.Add(
                         (
                             weapon.DesignerName,
-                            weapon.GetDesignerName(),
+                            giveDesignerName,
                             clip,
                             reserve,
                             activeDesignerName == weapon.DesignerName,

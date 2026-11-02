@@ -215,40 +215,93 @@ public partial class InventorySimulator
         PluginSnapshotUserEntry entry
     )
     {
-        if (entry.Equipped == null)
-            return;
         var state = player.GetState();
-        if (state.IsFetching || state.IsLoadedFromFile)
+        if (state.IsFetching || state.IsAutoReloading || state.IsLoadedFromFile)
             return;
-        var newInventory = new PlayerInventory(entry.Equipped);
-        var newFingerprint = newInventory.ComputeFingerprint();
-        if (entry.SyncedAt == state.LastEquippedSyncedAt && state.LastEquippedSyncedAt != 0)
+
+        // Do not trust snapshot `equipped` — it can still hold individually-selected
+        // skins after a loadout is equipped, which caused a flash then revert. Use
+        // syncedAt as the dirty signal and always refresh from /api/equipped/v5.
+        if (entry.SyncedAt == 0)
+            return;
+        if (entry.SyncedAt == state.LastEquippedSyncedAt)
+            return;
+
+        if (state.InventoryFingerprint == null && state.Inventory != null)
         {
-            if (state.InventoryFingerprint == newFingerprint)
+            state.InventoryFingerprint = state.Inventory.ComputeFingerprint();
+            state.LastEquippedSyncedAt = entry.SyncedAt;
+            return;
+        }
+
+        _ = ApplyAuthoritativeEquippedAsync(player, entry.SyncedAt);
+    }
+
+    private static async Task ApplyAuthoritativeEquippedAsync(
+        CCSPlayerController player,
+        long snapshotSyncedAt
+    )
+    {
+        var state = player.GetState();
+        if (state.IsFetching || state.IsAutoReloading || state.IsLoadedFromFile)
+            return;
+        state.IsAutoReloading = true;
+        var applyScheduled = false;
+        try
+        {
+            var response = await Api.FetchEquippedAsync(player.SteamID);
+            if (response == null)
+            {
+                // Advance so a bad snapshot tick does not retry forever.
+                state.LastEquippedSyncedAt = snapshotSyncedAt;
                 return;
+            }
+            var newInventory = new PlayerInventory(response);
+            var newFingerprint = newInventory.ComputeFingerprint();
+            if (state.InventoryFingerprint == newFingerprint)
+            {
+                state.LastEquippedSyncedAt = snapshotSyncedAt;
+                return;
+            }
+            newInventory.InitializeWearOverrides();
+            applyScheduled = true;
+            Server.NextWorldUpdate(() =>
+            {
+                try
+                {
+                    if (!player.IsValid)
+                        return;
+                    var current = player.GetState();
+                    if (current.IsLoadedFromFile)
+                        return;
+                    var oldInventory = current.Inventory;
+                    current.ClearEconItemView();
+                    current.WsUpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                    current.Inventory = newInventory;
+                    current.InventoryFingerprint = newFingerprint;
+                    current.LastEquippedSyncedAt = snapshotSyncedAt;
+                    player.HandleInventoryLoad();
+                    player.RegiveAgent(newInventory, oldInventory);
+                    player.RegiveGloves(newInventory, oldInventory);
+                    player.RegiveWeapons(newInventory, oldInventory);
+                    player.RegivePet(newInventory, oldInventory);
+                }
+                finally
+                {
+                    if (player.IsValid)
+                        player.GetState().IsAutoReloading = false;
+                }
+            });
         }
-        if (state.InventoryFingerprint == null)
+        catch
         {
-            state.InventoryFingerprint = newFingerprint;
-            state.LastEquippedSyncedAt = entry.SyncedAt;
-            return;
+            state.LastEquippedSyncedAt = snapshotSyncedAt;
         }
-        if (state.InventoryFingerprint == newFingerprint)
+        finally
         {
-            state.LastEquippedSyncedAt = entry.SyncedAt;
-            return;
+            if (!applyScheduled)
+                state.IsAutoReloading = false;
         }
-        var oldInventory = state.Inventory;
-        newInventory.InitializeWearOverrides();
-        state.WsUpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        state.Inventory = newInventory;
-        state.InventoryFingerprint = newFingerprint;
-        state.LastEquippedSyncedAt = entry.SyncedAt;
-        player.HandleInventoryLoad();
-        player.RegiveAgent(newInventory, oldInventory);
-        player.RegiveGloves(newInventory, oldInventory);
-        player.RegiveWeapons(newInventory, oldInventory);
-        player.RegivePet(newInventory, oldInventory);
     }
 
     public static int PickWeightedCaseId(int[] caseIds, float weightFactor)
