@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-using System.Runtime.InteropServices;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
@@ -30,19 +29,10 @@ public partial class InventorySimulator
                             Natives.CServerSideClientBase_ActivatePlayer.Invoke(thisPtr);
                     });
                 if (!controllerState.IsFetching)
-                    HandlePlayerInventoryRefresh(player);
+                    player.RefreshInventory();
                 return HookResult.Stop;
             }
         }
-        return HookResult.Continue;
-    }
-
-    public HookResult OnProcessUsercmds(DynamicHook hook)
-    {
-        if (!ConVars.IsSprayOnUse.Value)
-            return HookResult.Continue;
-        var player = hook.GetParam<CCSPlayerController>(0);
-        HandleClientProcessUsercmds(player);
         return HookResult.Continue;
     }
 
@@ -80,6 +70,18 @@ public partial class InventorySimulator
 
     public HookResult GetItemInLoadout(DynamicHook hook)
     {
+        var team = hook.GetParam<int>(1);
+        var slot = hook.GetParam<int>(2);
+        // Same as an unequipped slot, the game's base item for pets is empty.
+        if (slot == (int)loadout_slot_t.LOADOUT_SLOT_PET && !ConVars.IsPetEnabled.Value)
+        {
+            hook.SetReturn(
+                SchemaHelper
+                    .GetInventoryManager()
+                    .GetBaseItemForTeam((byte)team, (loadout_slot_t)slot)
+            );
+            return HookResult.Changed;
+        }
         var inventory = new CCSPlayerInventory(hook.GetParam<nint>(0));
         if (!inventory.IsValid)
             return HookResult.Continue;
@@ -87,19 +89,36 @@ public partial class InventorySimulator
         if (ret == nint.Zero)
             return HookResult.Continue;
         var itemView = new CEconItemView(ret);
-        var player = Utilities.GetPlayerFromSteamId(inventory.SOCache.Owner.SteamID);
+        var player = PlayerHelper.GetPlayerFromSteamId(inventory.SOCache.Owner.SteamID);
         if (player == null)
             return HookResult.Continue;
-        var team = hook.GetParam<int>(1);
-        var slot = hook.GetParam<int>(2);
         var controllerState = player.GetState();
+        var def = itemView.ItemDefinitionIndex;
+        var loadoutDef = ConVars.IsLoadoutEnabled.Value
+            ? controllerState.Inventory?.GetLoadoutDef((byte)team, (loadout_slot_t)slot)
+            : null;
         var item = controllerState.Inventory?.GetItemForSlot(
             (byte)team,
             (loadout_slot_t)slot,
-            itemView.ItemDefinitionIndex,
+            loadoutDef ?? def,
             ConVars.IsFallbackTeam.Value,
             ConVars.MinModels.Value
         );
+        // Buying, the buy menu and the spawn weapons all read the weapon from here. The player
+        // may have it equipped in another slot of their game loadout, otherwise the game
+        // returns this same stock item when a default-equipped weapon has no skin.
+        if (item == null && loadoutDef != null && loadoutDef != def)
+        {
+            var gameItem = inventory.FindWeaponInLoadout((byte)team, loadoutDef.Value);
+            if (gameItem == nint.Zero)
+                gameItem = SchemaHelper
+                    .GetInventoryManager()
+                    .GetReferenceEconItem(loadoutDef.Value);
+            if (gameItem == nint.Zero)
+                return HookResult.Continue;
+            hook.SetReturn(gameItem);
+            return HookResult.Changed;
+        }
         if (item != null)
         {
             var customView = controllerState.GetEconItemView(team, slot, item, itemView.Handle);
@@ -108,6 +127,22 @@ public partial class InventorySimulator
                 hook.SetReturn(customView);
                 return HookResult.Changed;
             }
+        }
+        return HookResult.Continue;
+    }
+
+    public HookResult OnChickenManagerServerGamePostSimulate(DynamicHook hook)
+    {
+        if (
+            !ConVars.IsPetFreeRoam.Value
+            && !(ConVars.IsPetRespawn.Value && EntityHelper.IsWarmupPeriod())
+        )
+            return HookResult.Continue;
+        foreach (var player in Utilities.GetPlayers())
+        {
+            var chicken = player.GetPetChicken();
+            if (chicken != null && !chicken.CanRoam)
+                chicken.CanRoam = true;
         }
         return HookResult.Continue;
     }

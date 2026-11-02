@@ -26,11 +26,12 @@ public class CCSPlayerControllerState(ulong steamId)
     public bool IsUseCmdBlocked = false;
     public bool IsRoundWinCasesDisabled = false;
     public bool HideUnboxTradeUpMessages = false;
+    public float UsePressedAt = 0;
     public Action? PostFetchCallback;
 
     private static readonly ConcurrentDictionary<
         (ulong SteamID, int Team, int Slot),
-        nint
+        (nint Ptr, string? Hash, int? Stattrak)
     > _econItemViewManager = [];
 
     public void TriggerPostFetch()
@@ -51,39 +52,27 @@ public class CCSPlayerControllerState(ulong steamId)
     public nint GetEconItemView(int team, int slot, InventoryItem item, nint copyFrom = 0)
     {
         var key = (SteamID, team, slot);
-        if (_econItemViewManager.TryGetValue(key, out var ptr))
-        {
-            try
-            {
-                var existingItemView = new CEconItemView(ptr);
-                existingItemView.ApplyAttributes(item, (loadout_slot_t)slot, SteamID);
-            }
-            catch
-            {
-                if (copyFrom != nint.Zero)
-                    return copyFrom;
-            }
-            return ptr;
-        }
         try
         {
-            var itemView = SchemaHelper.CreateCEconItemView(copyFrom);
+            var isCached = _econItemViewManager.TryGetValue(key, out var entry);
+            if (
+                isCached
+                && item.Hash != null
+                && entry.Hash == item.Hash
+                && entry.Stattrak == item.Stattrak
+            )
+                return entry.Ptr;
+            var itemView = isCached
+                ? new CEconItemView(entry.Ptr)
+                : SchemaHelper.CreateCEconItemView(copyFrom);
             itemView.ApplyAttributes(item, (loadout_slot_t)slot, SteamID);
-            _econItemViewManager[key] = itemView.Handle;
+            _econItemViewManager[key] = (itemView.Handle, item.Hash, item.Stattrak);
             return itemView.Handle;
         }
         catch
         {
             if (copyFrom != nint.Zero)
-            {
-                try
-                {
-                    var copyView = new CEconItemView(copyFrom);
-                    copyView.ApplyAttributes(item, (loadout_slot_t)slot, SteamID);
-                }
-                catch { }
                 return copyFrom;
-            }
             return nint.Zero;
         }
     }
@@ -92,13 +81,14 @@ public class CCSPlayerControllerState(ulong steamId)
     {
         foreach (var key in _econItemViewManager.Keys)
             if (key.SteamID == SteamID)
-                if (_econItemViewManager.TryRemove(key, out var ptr))
-                    Marshal.FreeHGlobal(ptr);
+                if (_econItemViewManager.TryRemove(key, out var entry))
+                    Marshal.FreeHGlobal(entry.Ptr);
     }
 
     public static void ClearAllEconItemView()
     {
-        foreach (var ptr in _econItemViewManager.Values)
-            Marshal.FreeHGlobal(ptr);
+        foreach (var key in _econItemViewManager.Keys)
+            if (_econItemViewManager.TryRemove(key, out var entry))
+                Marshal.FreeHGlobal(entry.Ptr);
     }
 }

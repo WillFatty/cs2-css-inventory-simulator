@@ -7,11 +7,12 @@ using CounterStrikeSharp.API.Core;
 
 namespace InventorySimulator;
 
-public static partial class Natives
+public static class Runtime
 {
-    private static readonly Lazy<int> _lazyCCSPlayerInventory_m_pSOCache = new(() =>
-        GameData.GetOffset("CCSPlayerInventory::m_pSOCache")
-    );
+    public static BasePlugin Plugin { get; set; } = null!;
 
-    public static int CCSPlayerInventory_m_pSOCache => _lazyCCSPlayerInventory_m_pSOCache.Value;
+    public static void Initialize(BasePlugin plugin)
+    {
+        Plugin = plugin;
+    }
 }

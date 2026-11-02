@@ -46,6 +46,12 @@ public static class ConVars
         30
     );
 
+    public static readonly FakeConVar<string> ChatPrefix = new(
+        "invsim_chat_prefix",
+        "Prefix displayed before chat messages.",
+        "{grey}- {gold}+ HexiumCS2 {gold}+ {grey}-"
+    );
+
     public static readonly FakeConVar<string> WsUrlPrintFormat = new(
         "invsim_ws_url_print_format",
         "URL format string displayed when using the !ws command.",
@@ -78,7 +84,7 @@ public static class ConVars
 
     public static readonly FakeConVar<bool> IsSprayOnUse = new(
         "invsim_spray_on_use",
-        "Apply spray when the player presses the use key.",
+        "Apply spray when the player taps the use key.",
         false
     );
 
@@ -92,6 +98,18 @@ public static class ConVars
         "invsim_spraychanger_enabled",
         "Replace the player's vanilla spray with their equipped graffiti.",
         false
+    );
+
+    public static readonly FakeConVar<bool> IsPublicApiStatTrakIncrement = new(
+        "invsim_public_api_stattrak_increment",
+        "Send keyless StatTrak increment requests to the public API when invsim_apikey is not set.",
+        true
+    );
+
+    public static readonly FakeConVar<bool> IsPublicApiSprayConsume = new(
+        "invsim_public_api_spray_consume",
+        "Send keyless graffiti consume requests to the public API when invsim_apikey is not set.",
+        true
     );
 
     public static readonly FakeConVar<bool> IsStatTrakIgnoreBots = new(
@@ -124,22 +142,10 @@ public static class ConVars
         2.0f
     );
 
-    public static readonly FakeConVar<string> ChatPrefix = new(
-        "invsim_chat_prefix",
-        "Prefix displayed before plugin chat messages (e.g. '- + MyServer + -').",
-        "- + InventorySimulator + -"
-    );
-
-    public static readonly FakeConVar<bool> IsAutoReloadEnabled = new(
-        "invsim_autoreload_enabled",
-        "Automatically refresh player inventories when changes are detected on the website.",
-        true
-    );
-
-    public static readonly FakeConVar<int> AutoReloadInterval = new(
-        "invsim_autoreload_interval",
-        "How often (in seconds) to check each player's inventory for changes. Minimum: 1.",
-        1
+    public static readonly FakeConVar<float> UnboxPollInterval = new(
+        "invsim_unbox_poll_interval",
+        "Interval in seconds between polling for case openings and trade-ups. Higher = fewer API calls, slower to show new unboxes. Minimum 1.",
+        1f
     );
 
     public static readonly FakeConVar<bool> IsFallbackTeam = new(
@@ -148,22 +154,46 @@ public static class ConVars
         false
     );
 
+    public static readonly FakeConVar<bool> IsLoadoutEnabled = new(
+        "invsim_loadout_enabled",
+        "Give players the weapons of their equipped loadout instead of their game loadout.",
+        true
+    );
+
     public static readonly FakeConVar<int> MinModels = new(
         "invsim_minmodels",
         "Enable player agents (0 = enabled, 1 = use map models per team, 2 = SAS & Phoenix).",
         0
     );
 
-    public static readonly FakeConVar<float> UnboxPollInterval = new(
-        "invsim_unbox_poll_interval",
-        "Interval in seconds between polling for case openings and trade-ups. Higher = fewer API calls, slower to show new unboxes. Minimum 1.",
-        1f
+    public static readonly FakeConVar<bool> IsPetEnabled = new(
+        "invsim_pet_enabled",
+        "Allow players' pets to spawn.",
+        true
     );
 
-    public static readonly FakeConVar<int> UnboxPollMaxPlayersPerTick = new(
-        "invsim_unbox_poll_max_per_tick",
-        "Max players to poll for case/trade-up per tick (round-robin). Lower = gentler on server and API. Minimum 1.",
-        1
+    public static readonly FakeConVar<bool> IsPetImmortal = new(
+        "invsim_pet_immortal",
+        "Prevent players' pets from taking damage.",
+        false
+    );
+
+    public static readonly FakeConVar<bool> IsPetFreeRoam = new(
+        "invsim_pet_free_roam",
+        "Allow players' pets to keep roaming after freeze time ends.",
+        false
+    );
+
+    public static readonly FakeConVar<bool> IsPetRespawn = new(
+        "invsim_pet_respawn",
+        "Give players a new pet when they spawn without a living one.",
+        false
+    );
+
+    public static readonly FakeConVar<bool> IsPetRespawnWarmupOnly = new(
+        "invsim_pet_respawn_warmup_only",
+        "Only respawn pets during warmup.",
+        true
     );
 
     public static void Initialize(BasePlugin plugin)

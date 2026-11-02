@@ -7,8 +7,15 @@ using System.Text.Json.Serialization;
 
 namespace InventorySimulator;
 
-public class InventoryVersionResponse
+public class ConsumeItemSprayRequest
 {
-    [JsonPropertyName("version")]
-    public int Version { get; set; }
+    [JsonPropertyName("apiKey")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ApiKey { get; set; }
+
+    [JsonPropertyName("targetUid")]
+    public required int TargetUid { get; set; }
+
+    [JsonPropertyName("userId")]
+    public required string UserId { get; set; }
 }

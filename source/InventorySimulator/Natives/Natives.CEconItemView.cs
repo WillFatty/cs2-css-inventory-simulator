@@ -10,11 +10,10 @@ namespace InventorySimulator;
 
 public static partial class Natives
 {
-    public static readonly MemoryFunctionWithReturn<
-        nint,
-        string,
-        nint
-    > CEconItemSchema_GetItemDefinitionByName = new(
-        GameData.GetSignature("CEconItemSchema::GetItemDefinitionByName")
+    public static readonly MemoryFunctionVoid<nint> CEconItemView_Constructor = new(
+        GameData.GetSignature("CEconItemView::CEconItemView")
     );
+
+    public static readonly MemoryFunctionWithReturn<nint, nint, nint> CEconItemView_OperatorEquals =
+        new(GameData.GetSignature("CEconItemView::operator="));
 }

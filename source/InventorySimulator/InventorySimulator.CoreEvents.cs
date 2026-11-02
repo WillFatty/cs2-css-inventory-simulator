@@ -10,6 +10,17 @@ namespace InventorySimulator;
 
 public partial class InventorySimulator
 {
+    public void OnMapStart(string mapName)
+    {
+        // Clients clear their skin material cache on map change. Inventories that outlived the old
+        // map keep their wears claimed, the others get new ones when they're fetched again.
+        WearRegistry.Reset(
+            CCSPlayerControllerExtensions
+                .GetAllStates()
+                .SelectMany(state => state.Inventory?.GetAllWeapons() ?? [])
+        );
+    }
+
     public void OnEntityCreated(CEntityInstance entity)
     {
         var designerName = entity.DesignerName;
@@ -22,10 +33,30 @@ public partial class InventorySimulator
                 var sprayDecal = entity.As<CPlayerSprayDecal>();
                 if (!sprayDecal.IsValid || sprayDecal.AccountID == 0)
                     return;
-                var player = Utilities.GetPlayerFromSteamId(sprayDecal.AccountID);
+                var player = PlayerHelper.GetPlayerFromAccountId(sprayDecal.AccountID);
                 if (player == null || player.IsBot)
                     return;
-                HandlePlayerSprayDecalCreated(player, sprayDecal);
+                player.HandleSprayDecalCreated(sprayDecal);
+            });
+        }
+    }
+
+    public void OnEntitySpawned(CEntityInstance entity)
+    {
+        var designerName = entity.DesignerName;
+        if (designerName == "chicken")
+        {
+            Server.NextWorldUpdate(() =>
+            {
+                var chicken = entity.As<CChicken>();
+                if (!chicken.IsValid)
+                    return;
+                var controller = chicken.Owner.Value;
+                if (controller == null || controller.SteamID == 0)
+                    return;
+                var item = controller.GetState().Inventory?.Pet;
+                if (item != null)
+                    chicken.ApplyPetStyle(item);
             });
         }
     }
@@ -37,7 +68,33 @@ public partial class InventorySimulator
         {
             var controller = entity.As<CCSPlayerController>();
             if (controller.SteamID != 0)
-                HandleControllerDeleted(controller);
+            {
+                CleanupCustomPlayerState(controller.SteamID);
+                controller.RemoveState();
+            }
         }
+    }
+
+    public void OnPlayerButtonsChanged(
+        CCSPlayerController player,
+        PlayerButtons pressed,
+        PlayerButtons released
+    )
+    {
+        if (player.IsBot)
+            return;
+        if ((pressed & PlayerButtons.Use) != 0)
+            player.HandleUsePressed();
+        else if ((released & PlayerButtons.Use) != 0)
+            player.HandleUseReleased();
+    }
+
+    public HookResult OnEntityTakeDamagePre(CBaseEntity entity, CTakeDamageInfo info)
+    {
+        if (!ConVars.IsPetImmortal.Value)
+            return HookResult.Continue;
+        if (entity.DesignerName != "chicken" || entity.As<CChicken>().Owner.Value == null)
+            return HookResult.Continue;
+        return HookResult.Handled;
     }
 }

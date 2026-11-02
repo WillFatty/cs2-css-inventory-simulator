@@ -34,7 +34,7 @@ public static class NoCasesPersistence
         }
         catch (Exception ex)
         {
-            CSS.Plugin.Logger.LogError("Failed to load nocases list: {Message}", ex.Message);
+            Runtime.Plugin.Logger.LogError("Failed to load nocases list: {Message}", ex.Message);
         }
     }
 
@@ -67,7 +67,7 @@ public static class NoCasesPersistence
         }
         catch (Exception ex)
         {
-            CSS.Plugin.Logger.LogError("Failed to save nocases list: {Message}", ex.Message);
+            Runtime.Plugin.Logger.LogError("Failed to save nocases list: {Message}", ex.Message);
         }
     }
 }

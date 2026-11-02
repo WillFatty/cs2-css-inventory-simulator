@@ -16,7 +16,7 @@ public class PluginSnapshotUserEntry
     public LastTradeUpResponse? LastTradeUp { get; set; }
 
     [JsonPropertyName("equipped")]
-    public EquippedV4Response? Equipped { get; set; }
+    public EquippedV5Response? Equipped { get; set; }
 
     [JsonPropertyName("syncedAt")]
     public long SyncedAt { get; set; }

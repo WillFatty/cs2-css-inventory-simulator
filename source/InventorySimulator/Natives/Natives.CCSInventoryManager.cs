@@ -10,13 +10,14 @@ namespace InventorySimulator;
 
 public static partial class Natives
 {
+    public static readonly nint CSInventoryManager = GetGameSystemByName("CCSInventoryManager");
+
     public static readonly MemoryFunctionWithReturn<
         nint,
-        nint,
         int,
-        bool,
-        float
-    > CCSPlayerController_ProcessUsercmds = new(
-        GameData.GetSignature("CCSPlayerController::ProcessUsercmds")
+        int,
+        nint
+    > CCSInventoryManager_GetBaseItemForTeam = new(
+        GameData.GetSignature("CCSInventoryManager::GetBaseItemForTeam")
     );
 }

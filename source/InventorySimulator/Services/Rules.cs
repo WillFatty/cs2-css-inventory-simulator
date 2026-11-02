@@ -3,17 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
+using CounterStrikeSharp.API.Core.Translations;
 
 namespace InventorySimulator;
 
-public static partial class Natives
+public static class Rules
 {
-    public static readonly MemoryFunctionWithReturn<
-        nint,
-        nint
-    > CCSPlayerInventory_SendInventoryUpdateEvent = new(
-        GameData.GetSignature("CCSPlayerInventory::SendInventoryUpdateEvent")
-    );
+    public static string GetChatPrefix(bool stripColors = false)
+    {
+        var prefix = ConVars.ChatPrefix.Value;
+        if (prefix != "")
+            return $"{(stripColors
+            ? prefix.StripColorTags()
+            : prefix.ReplaceColorTags())} ";
+        return "";
+    }
 }

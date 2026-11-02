@@ -8,25 +8,23 @@ using CounterStrikeSharp.API.Modules.Utils;
 
 namespace InventorySimulator;
 
-public class PlayerInventory(EquippedV4Response data)
+public class PlayerInventory(EquippedV5Response data)
 {
-    private readonly EquippedV4Response _data = data;
+    private readonly EquippedV5Response _data = data;
     public Dictionary<byte, InventoryItem> Agents => _data.Agents;
     public InventoryItem? MusicKit => _data.MusicKit;
     public InventoryItem? Graffiti => _data.Graffiti;
-
-    public Dictionary<(int paint, float wear), (ushort def, string stickers)> WeaponWearCache = [];
+    public InventoryItem? Pet => _data.Pet;
 
     public static PlayerInventory Empty() => new(new());
 
+    public IEnumerable<InventoryItem> GetAllWeapons() =>
+        _data.Knives.Values.Concat(_data.CTWeapons.Values).Concat(_data.TWeapons.Values);
+
     public void InitializeWearOverrides()
     {
-        foreach (var knife in _data.Knives.Values)
-            knife.WearOverride = GetWeaponWear(knife);
-        foreach (var weapon in _data.CTWeapons.Values)
-            weapon.WearOverride = GetWeaponWear(weapon);
-        foreach (var weapon in _data.TWeapons.Values)
-            weapon.WearOverride = GetWeaponWear(weapon);
+        foreach (var item in GetAllWeapons())
+            item.WearOverride = WearRegistry.Resolve(item);
     }
 
     public InventoryItem? GetKnife(byte team, bool fallback)
@@ -61,34 +59,33 @@ public class PlayerInventory(EquippedV4Response data)
         return null;
     }
 
-    // It looks like CS2's client caches the weapon materials based on wear and seed. Until we figure out
-    // the proper way to force a material update, we need to ensure that every paint has a unique wear so
-    // that: 1) it gets regenerated, and 2) there are no rendering issues. As a drawback, every time
-    // players use !ws, their weapon's wear will decay, but I think it's a good trade-off since it also
-    // forces the sticker to regenerate. This approach is based on workarounds by @stefanx111 and @bklol.
-    private float GetWeaponWear(InventoryItem item)
+    public ushort? GetLoadoutDef(byte team, loadout_slot_t slot)
     {
-        if (item is not { Def: not null, Paint: not null, Wear: not null, Stickers: not null })
-            return 0;
-        var def = item.Def.Value;
-        var paint = item.Paint.Value;
-        var wear = item.Wear.Value;
-        var stickers = string.Join("_", item.Stickers.Select(s => s.Def));
-        while (
-            WeaponWearCache.TryGetValue((paint, wear), out var cached)
-            && (cached.def != def || cached.stickers != stickers)
+        if (
+            _data.Loadout != null
+            && _data.Loadout.TryGetValue(team, out var slots)
+            && slots.TryGetValue((byte)slot, out var def)
         )
-            wear += 0.001f;
-        WeaponWearCache[(paint, wear)] = (def, stickers);
-        return wear;
+            return def;
+        return null;
     }
 
     private static string GetVisualKey(InventoryItem item)
     {
-        var stickers = item.Stickers != null
-            ? string.Join("_", item.Stickers.Select(s => $"{s.Def},{s.Slot},{s.Wear},{s.X},{s.Y}"))
-            : string.Empty;
-        return $"{item.Uid}|{item.Def}|{item.Paint}|{item.Seed}|{item.Wear}|{item.Nametag}|{stickers}";
+        if (!string.IsNullOrEmpty(item.Hash))
+            return $"{item.Uid}|{item.Hash}|{item.Stattrak}|{item.Charges}|{item.UpgradeLevel}";
+        var stickers =
+            item.Stickers != null
+                ? string.Join(
+                    "_",
+                    item.Stickers.Select(s => $"{s.Def},{s.Slot},{s.Wear},{s.X},{s.Y}")
+                )
+                : string.Empty;
+        var keychains =
+            item.Keychains != null
+                ? string.Join("_", item.Keychains.Select(k => $"{k.Def},{k.Slot}"))
+                : string.Empty;
+        return $"{item.Uid}|{item.Def}|{item.Paint}|{item.Seed}|{item.Wear}|{item.Nametag}|{item.Style}|{item.Tint}|{item.Charges}|{item.UpgradeLevel}|{stickers}|{keychains}";
     }
 
     public int ComputeFingerprint()
@@ -108,6 +105,16 @@ public class PlayerInventory(EquippedV4Response data)
             keys.Add(GetVisualKey(_data.MusicKit));
         if (_data.Graffiti != null)
             keys.Add(GetVisualKey(_data.Graffiti));
+        if (_data.Pet != null)
+            keys.Add(GetVisualKey(_data.Pet));
+        if (_data.Collectible != null)
+            keys.Add(GetVisualKey(_data.Collectible));
+        if (_data.Loadout != null)
+        {
+            foreach (var (team, slots) in _data.Loadout.OrderBy(kv => kv.Key))
+            foreach (var (slot, def) in slots.OrderBy(kv => kv.Key))
+                keys.Add($"loadout|{team}|{slot}|{def}");
+        }
         keys.Sort();
         return string.Join(",", keys).GetHashCode();
     }
@@ -147,6 +154,13 @@ public class PlayerInventory(EquippedV4Response data)
             return _data.Collectible;
         if (slot == loadout_slot_t.LOADOUT_SLOT_MUSICKIT)
             return _data.MusicKit;
+        if (slot == loadout_slot_t.LOADOUT_SLOT_PET)
+            return _data.Pet;
         return null;
+    }
+
+    public void ClearGraffiti()
+    {
+        _data.Graffiti = null;
     }
 }

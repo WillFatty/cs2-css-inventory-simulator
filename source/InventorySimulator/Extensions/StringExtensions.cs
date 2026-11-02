@@ -3,15 +3,20 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-using CounterStrikeSharp.API.Core;
+using System.Text.RegularExpressions;
 
 namespace InventorySimulator;
 
-public static partial class Natives
+public static partial class StringExtensions
 {
-    private static readonly Lazy<int> _lazyCServerSideClientBase_m_UserID = new(() =>
-        GameData.GetOffset("CServerSideClientBase::m_UserID")
-    );
+    extension(string self)
+    {
+        public string StripColorTags()
+        {
+            return ColorTag().Replace(self, "");
+        }
+    }
 
-    public static int CServerSideClientBase_m_UserID => _lazyCServerSideClientBase_m_UserID.Value;
+    [GeneratedRegex(@"\{.*?\}")]
+    private static partial Regex ColorTag();
 }

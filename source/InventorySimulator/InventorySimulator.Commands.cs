@@ -11,7 +11,10 @@ namespace InventorySimulator;
 
 public partial class InventorySimulator
 {
-    [ConsoleCommand("css_ws", "Refreshes player's inventory.")]
+    [ConsoleCommand(
+        "css_ws",
+        "Refreshes player inventory from the Inventory Simulator service and displays the configured URL."
+    )]
     public void OnWSCommand(CCSPlayerController? player, CommandInfo commandInfo) =>
         ExecuteInventoryRefreshCommand(player, commandInfo);
 
@@ -29,10 +32,9 @@ public partial class InventorySimulator
 
     private void ExecuteInventoryRefreshCommand(CCSPlayerController? player, CommandInfo _)
     {
+        var prefix = Rules.GetChatPrefix();
         var url = UrlHelper.FormatUrl(ConVars.WsUrlPrintFormat.Value, ConVars.Url.Value);
-        var announceTemplate = Localizer["invsim.announce"].ToString();
-        var announceMessage = announceTemplate.Replace("{0}", url);
-        player?.PrintToChat(announceMessage);
+        player?.PrintToChat(Localizer["invsim.announce", prefix, url]);
         if (!ConVars.IsWsEnabled.Value || player == null)
             return;
         var controllerState = player.GetState();
@@ -40,19 +42,22 @@ public partial class InventorySimulator
         var diff = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - controllerState.WsUpdatedAt;
         if (diff < cooldown)
         {
-            player.PrintToChat(Localizer["invsim.ws_cooldown", cooldown - diff]);
+            player.PrintToChat(Localizer["invsim.ws_cooldown", prefix, cooldown - diff]);
             return;
         }
         if (controllerState.IsFetching)
         {
-            player.PrintToChat(Localizer["invsim.ws_in_progress"]);
+            player.PrintToChat(Localizer["invsim.ws_in_progress", prefix]);
             return;
         }
-        HandlePlayerInventoryRefresh(player, true);
-        player.PrintToChat(Localizer["invsim.ws_new"]);
+        player.RefreshInventory(force: true);
+        player.PrintToChat(Localizer["invsim.ws_new", prefix]);
     }
 
-    [ConsoleCommand("css_spray", "Spray player's graffiti.")]
+    [ConsoleCommand(
+        "css_spray",
+        "Applies the player's equipped graffiti spray at their current location."
+    )]
     public void OnSprayCommand(CCSPlayerController? player, CommandInfo _)
     {
         if (player != null && ConVars.IsSprayEnabled.Value)
@@ -62,51 +67,64 @@ public partial class InventorySimulator
             var diff = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - controllerState.SprayUsedAt;
             if (diff < cooldown)
             {
-                player.PrintToChat(Localizer["invsim.spray_cooldown", cooldown - diff]);
+                player.PrintToChat(
+                    Localizer["invsim.spray_cooldown", Rules.GetChatPrefix(), cooldown - diff]
+                );
                 return;
             }
-            HandlePlayerGraffitiSpray(player);
+            player.SprayGraffiti();
         }
     }
 
-    [ConsoleCommand("css_nocases", "Toggle round-win case drops for yourself (saved across sessions).")]
+    [ConsoleCommand(
+        "css_nocases",
+        "Toggle round-win case drops for yourself (saved across sessions)."
+    )]
     public void OnNoCasesCommand(CCSPlayerController? player, CommandInfo _)
     {
         if (player == null || player.IsBot)
             return;
         var isNowDisabled = NoCasesPersistence.Toggle(player.SteamID);
         player.GetState().IsRoundWinCasesDisabled = isNowDisabled;
+        var prefix = Rules.GetChatPrefix();
         player.PrintToChat(
             isNowDisabled
-                ? Localizer["invsim.nocases_disabled"]
-                : Localizer["invsim.nocases_enabled"]
+                ? Localizer["invsim.nocases_disabled", prefix]
+                : Localizer["invsim.nocases_enabled", prefix]
         );
     }
 
-    [ConsoleCommand("css_hideunbox", "Toggle case opening and trade-up chat messages for yourself (this session only).")]
+    [ConsoleCommand(
+        "css_hideunbox",
+        "Toggle case opening and trade-up chat messages for yourself (this session only)."
+    )]
     public void OnHideUnboxCommand(CCSPlayerController? player, CommandInfo _)
     {
         if (player == null || player.IsBot)
             return;
         var state = player.GetState();
         state.HideUnboxTradeUpMessages = !state.HideUnboxTradeUpMessages;
+        var prefix = Rules.GetChatPrefix();
         player.PrintToChat(
             state.HideUnboxTradeUpMessages
-                ? Localizer["invsim.hideunbox_disabled"]
-                : Localizer["invsim.hideunbox_enabled"]
+                ? Localizer["invsim.hideunbox_disabled", prefix]
+                : Localizer["invsim.hideunbox_enabled", prefix]
         );
     }
 
-    [ConsoleCommand("css_wslogin", "Authenticate player to Inventory Simulator.")]
+    [ConsoleCommand(
+        "css_wslogin",
+        "Authenticates the player with Inventory Simulator and displays their login URL."
+    )]
     public void OnWsloginCommand(CCSPlayerController? player, CommandInfo _)
     {
         if (ConVars.IsWsLogin.Value && Api.HasApiKey() && player != null)
         {
             var controllerState = player.GetState();
-            player.PrintToChat(Localizer["invsim.login_in_progress"]);
+            player.PrintToChat(Localizer["invsim.login_in_progress", Rules.GetChatPrefix()]);
             if (controllerState.IsAuthenticating)
                 return;
-            HandleSignIn(player);
+            player.SignIn();
         }
     }
 }

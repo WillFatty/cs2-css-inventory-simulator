@@ -5,6 +5,7 @@
 
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Text;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Memory;
 using Vector = CounterStrikeSharp.API.Modules.Utils.Vector;
@@ -29,8 +30,42 @@ public static class SchemaHelper
         return schema.IsValid ? schema : null;
     }
 
+    public static CCSInventoryManager GetInventoryManager()
+    {
+        return new CCSInventoryManager(Natives.CSInventoryManager);
+    }
+
     public static Vector ToVector(Vector3 vec)
     {
         return new(vec.X, vec.Y, vec.Z);
+    }
+
+    public static uint MakeStringToken(string str)
+    {
+        const uint m = 0x5bd1e995;
+        var data = Encoding.UTF8.GetBytes(str.ToLowerInvariant());
+        var h = 0x31415926u ^ (uint)data.Length;
+        var i = 0;
+        for (; data.Length - i >= 4; i += 4)
+        {
+            var k = BitConverter.ToUInt32(data, i) * m;
+            k ^= k >> 24;
+            h = (h * m) ^ (k * m);
+        }
+        switch (data.Length - i)
+        {
+            case 3:
+                h ^= (uint)data[i + 2] << 16;
+                goto case 2;
+            case 2:
+                h ^= (uint)data[i + 1] << 8;
+                goto case 1;
+            case 1:
+                h = (h ^ data[i]) * m;
+                break;
+        }
+        h ^= h >> 13;
+        h *= m;
+        return h ^ (h >> 15);
     }
 }

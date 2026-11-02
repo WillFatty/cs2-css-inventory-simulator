@@ -4,15 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 
 namespace InventorySimulator;
 
 public static partial class Natives
 {
-    public static readonly MemoryFunctionVoid<nint> CServerSideClientBase_ActivatePlayer = new(
-        GameData.GetSignature("CServerSideClientBase::ActivatePlayer"),
-        Addresses.EnginePath
+    public static readonly MemoryFunctionWithReturn<
+        nint,
+        int,
+        int,
+        int,
+        nint
+    > CInventoryManager_GetReferenceEconItem = new(
+        GameData.GetSignature("CInventoryManager::GetReferenceEconItem")
     );
 }

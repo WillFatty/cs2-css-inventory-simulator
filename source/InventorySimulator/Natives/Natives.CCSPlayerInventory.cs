@@ -12,11 +12,19 @@ public static partial class Natives
 {
     public static readonly MemoryFunctionWithReturn<
         nint,
-        nint,
-        nint,
-        nint,
+        int,
+        int,
         nint
-    > CCSPlayerPawn_IsAbleToApplySpray = new(
-        GameData.GetSignature("CCSPlayerPawn::IsAbleToApplySpray")
+    > CCSPlayerInventory_GetItemInLoadout = new(
+        GameData.GetSignature("CCSPlayerInventory::GetItemInLoadout")
     );
+
+    public static readonly MemoryFunctionVoid<nint> CCSPlayerInventory_SendInventoryUpdateEvent =
+        new(GameData.GetSignature("CCSPlayerInventory::SendInventoryUpdateEvent"));
+
+    private static readonly Lazy<int> _lazyCCSPlayerInventory_m_pSOCache = new(() =>
+        GameData.GetOffset("CCSPlayerInventory::m_pSOCache")
+    );
+
+    public static int CCSPlayerInventory_m_pSOCache => _lazyCCSPlayerInventory_m_pSOCache.Value;
 }

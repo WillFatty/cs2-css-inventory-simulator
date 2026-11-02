@@ -10,7 +10,8 @@ namespace InventorySimulator;
 public class StatTrakIncrementRequest
 {
     [JsonPropertyName("apiKey")]
-    public required string ApiKey { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ApiKey { get; set; }
 
     [JsonPropertyName("targetUid")]
     public required int TargetUid { get; set; }

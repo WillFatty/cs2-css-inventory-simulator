@@ -16,6 +16,9 @@ invsim_ws_immediately false
 invsim_ws_cooldown 30
     Cooldown duration in seconds between inventory refreshes per player.
 
+invsim_chat_prefix ""
+    Prefix displayed before chat messages.
+
 invsim_ws_url_print_format "{Host}"
     URL format string displayed when using the !ws command.
 
@@ -32,7 +35,7 @@ invsim_spray_enabled true
     Enable spraying via the !spray command and/or use key.
 
 invsim_spray_on_use false
-    Apply spray when the player presses the use key.
+    Apply spray when the player taps the use key.
 
 invsim_spray_cooldown 30
     Cooldown duration in seconds between sprays per player.
@@ -46,8 +49,26 @@ invsim_stattrak_ignore_bots true
 invsim_fallback_team false
     Allow using skins from any team (prioritizes current team first).
 
+invsim_loadout_enabled true
+    Give players the weapons of their equipped loadout instead of their game loadout.
+
 invsim_minmodels 0
     Enable player agents (0 = enabled, 1 = use map models per team, 2 = SAS & Phoenix).
+
+invsim_pet_enabled true
+    Allow players' pets to spawn.
+
+invsim_pet_immortal false
+    Prevent players' pets from taking damage.
+
+invsim_pet_free_roam false
+    Allow players' pets to keep roaming after freeze time ends.
+
+invsim_pet_respawn false
+    Give players a new pet when they spawn without a living one.
+
+invsim_pet_respawn_warmup_only true
+    Only respawn pets during warmup.
 
 css_ws
     Refreshes player inventory from the Inventory Simulator service and displays the configured URL.

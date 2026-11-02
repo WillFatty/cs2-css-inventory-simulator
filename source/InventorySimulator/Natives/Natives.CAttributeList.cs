@@ -4,15 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 
 namespace InventorySimulator;
 
-public static class CSS
+public static partial class Natives
 {
-    public static BasePlugin Plugin { get; set; } = null!;
-
-    public static void Initialize(BasePlugin plugin)
-    {
-        Plugin = plugin;
-    }
+    public static readonly MemoryFunctionVoid<
+        nint,
+        string,
+        float
+    > CAttributeList_SetOrAddAttributeValueByName = new(
+        GameData.GetSignature("CAttributeList::SetOrAddAttributeValueByName")
+    );
 }
