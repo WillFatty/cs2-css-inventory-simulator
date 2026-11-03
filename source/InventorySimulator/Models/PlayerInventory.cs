@@ -70,10 +70,10 @@ public class PlayerInventory(EquippedV5Response data)
         return null;
     }
 
+    // Visual identity only — StatTrak and the website `hash` (which embeds StatTrak)
+    // must not be included, or every kill triggers a full skin re-give via live sync.
     private static string GetVisualKey(InventoryItem item)
     {
-        if (!string.IsNullOrEmpty(item.Hash))
-            return $"{item.Uid}|{item.Hash}|{item.Stattrak}|{item.Charges}|{item.UpgradeLevel}";
         var stickers =
             item.Stickers != null
                 ? string.Join(
@@ -85,7 +85,7 @@ public class PlayerInventory(EquippedV5Response data)
             item.Keychains != null
                 ? string.Join("_", item.Keychains.Select(k => $"{k.Def},{k.Slot}"))
                 : string.Empty;
-        return $"{item.Uid}|{item.Def}|{item.Paint}|{item.Seed}|{item.Wear}|{item.Nametag}|{item.Style}|{item.Tint}|{item.Charges}|{item.UpgradeLevel}|{stickers}|{keychains}";
+        return $"{item.Uid}|{item.Def}|{item.Paint}|{item.Seed}|{item.Wear}|{item.Nametag}|{item.Style}|{item.Tint}|{item.Charges}|{item.UpgradeLevel}|{item.MusicId}|{item.PetId}|{stickers}|{keychains}";
     }
 
     public int ComputeFingerprint()

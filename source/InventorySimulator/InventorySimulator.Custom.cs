@@ -258,8 +258,11 @@ public partial class InventorySimulator
             }
             var newInventory = new PlayerInventory(response);
             var newFingerprint = newInventory.ComputeFingerprint();
+            // StatTrak-only sync (kills): keep counts up to date without re-giving skins.
             if (state.InventoryFingerprint == newFingerprint)
             {
+                newInventory.InitializeWearOverrides();
+                state.Inventory = newInventory;
                 state.LastEquippedSyncedAt = snapshotSyncedAt;
                 return;
             }

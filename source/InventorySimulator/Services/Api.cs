@@ -117,10 +117,12 @@ public class Api
             }
             if (!response.IsSuccessStatusCode)
             {
+                var body = await response.Content.ReadAsStringAsync();
                 Runtime.Plugin.Logger.LogError(
-                    "POST {Url} failed with status code: {StatusCode}",
+                    "POST {Url} failed with status code: {StatusCode}. Body: {Body}",
                     url,
-                    response.StatusCode
+                    response.StatusCode,
+                    string.IsNullOrWhiteSpace(body) ? "(empty)" : body
                 );
                 return null;
             }
@@ -237,7 +239,15 @@ public class Api
             TargetUid = targetUid,
             UserId = userId.ToString(),
         };
-        await SendPostAsync(url, request, suspendOnUnauthorized: true);
+        var response = await SendPostAsync(url, request, suspendOnUnauthorized: true);
+        if (response == null)
+        {
+            Runtime.Plugin.Logger.LogWarning(
+                "StatTrak increment rejected for userId={UserId} targetUid={TargetUid}. API returns 400 when the user is missing, the uid is invalid, or that item is not currently equipped (including loadout-only items if the site does not treat them as equipped).",
+                userId,
+                targetUid
+            );
+        }
     }
 
     public static async void SendStatTrakIncrement(ulong userId, int targetUid)
