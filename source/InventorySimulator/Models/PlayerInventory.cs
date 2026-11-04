@@ -12,8 +12,6 @@ public class PlayerInventory(EquippedV5Response data)
 {
     private readonly EquippedV5Response _data = data;
     public Dictionary<byte, InventoryItem> Agents => _data.Agents;
-    public InventoryItem? MusicKit => _data.MusicKit;
-    public InventoryItem? Graffiti => _data.Graffiti;
     public InventoryItem? Pet => _data.Pet;
 
     public static PlayerInventory Empty() => new(new());
@@ -59,6 +57,34 @@ public class PlayerInventory(EquippedV5Response data)
         return null;
     }
 
+    public InventoryItem? GetMusicKit(byte team, bool fallback = false) =>
+        GetTeamCosmetic(_data.MusicKit, team, fallback);
+
+    public InventoryItem? GetCollectible(byte team, bool fallback = false) =>
+        GetTeamCosmetic(_data.Collectible, team, fallback);
+
+    public InventoryItem? GetGraffiti(byte team, bool fallback = false) =>
+        GetTeamCosmetic(_data.Graffiti, team, fallback);
+
+    private static InventoryItem? GetTeamCosmetic(
+        Dictionary<byte, InventoryItem>? items,
+        byte team,
+        bool fallback
+    )
+    {
+        if (items == null || items.Count == 0)
+            return null;
+        if (items.TryGetValue(team, out var item))
+            return item;
+        if (
+            fallback
+            && team is (byte)CsTeam.Terrorist or (byte)CsTeam.CounterTerrorist
+            && items.TryGetValue(TeamHelper.ToggleTeam(team), out item)
+        )
+            return item;
+        return null;
+    }
+
     public ushort? GetLoadoutDef(byte team, loadout_slot_t slot)
     {
         if (
@@ -101,14 +127,14 @@ public class PlayerInventory(EquippedV5Response data)
             keys.Add(GetVisualKey(item));
         foreach (var item in _data.Gloves.Values)
             keys.Add(GetVisualKey(item));
-        if (_data.MusicKit != null)
-            keys.Add(GetVisualKey(_data.MusicKit));
-        if (_data.Graffiti != null)
-            keys.Add(GetVisualKey(_data.Graffiti));
+        foreach (var (team, item) in _data.MusicKit)
+            keys.Add($"music|{team}|{GetVisualKey(item)}");
+        foreach (var (team, item) in _data.Graffiti)
+            keys.Add($"graffiti|{team}|{GetVisualKey(item)}");
+        foreach (var (team, item) in _data.Collectible)
+            keys.Add($"collectible|{team}|{GetVisualKey(item)}");
         if (_data.Pet != null)
             keys.Add(GetVisualKey(_data.Pet));
-        if (_data.Collectible != null)
-            keys.Add(GetVisualKey(_data.Collectible));
         if (_data.Loadout != null)
         {
             foreach (var (team, slots) in _data.Loadout.OrderBy(kv => kv.Key))
@@ -150,17 +176,19 @@ public class PlayerInventory(EquippedV5Response data)
         {
             return GetGloves(team, fallback);
         }
+        // Flair/music fall back across teams so a one-sided loadout still shows
+        // in-game; when both sides are set, the current team wins.
         if (slot == loadout_slot_t.LOADOUT_SLOT_FLAIR0)
-            return _data.Collectible;
+            return GetCollectible(team, fallback: true);
         if (slot == loadout_slot_t.LOADOUT_SLOT_MUSICKIT)
-            return _data.MusicKit;
+            return GetMusicKit(team, fallback: true);
         if (slot == loadout_slot_t.LOADOUT_SLOT_PET)
             return _data.Pet;
         return null;
     }
 
-    public void ClearGraffiti()
+    public void ClearGraffiti(byte team)
     {
-        _data.Graffiti = null;
+        _data.Graffiti.Remove(team);
     }
 }

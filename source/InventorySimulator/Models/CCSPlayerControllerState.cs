@@ -28,6 +28,7 @@ public class CCSPlayerControllerState(ulong steamId)
     public bool HideUnboxTradeUpMessages = false;
     public float UsePressedAt = 0;
     public Action? PostFetchCallback;
+    public byte CosmeticTeam = 0;
 
     private static readonly ConcurrentDictionary<
         (ulong SteamID, int Team, int Slot),

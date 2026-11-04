@@ -13,7 +13,8 @@ public class EquippedV5Response
     public Dictionary<byte, InventoryItem> Agents { get; set; } = [];
 
     [JsonPropertyName("collectible")]
-    public InventoryItem? Collectible { get; set; }
+    [JsonConverter(typeof(TeamInventoryItemDictionaryConverter))]
+    public Dictionary<byte, InventoryItem> Collectible { get; set; } = [];
 
     [JsonPropertyName("ctWeapons")]
     public Dictionary<ushort, InventoryItem> CTWeapons { get; set; } = [];
@@ -22,7 +23,8 @@ public class EquippedV5Response
     public Dictionary<byte, InventoryItem> Gloves { get; set; } = [];
 
     [JsonPropertyName("graffiti")]
-    public InventoryItem? Graffiti { get; set; }
+    [JsonConverter(typeof(TeamInventoryItemDictionaryConverter))]
+    public Dictionary<byte, InventoryItem> Graffiti { get; set; } = [];
 
     [JsonPropertyName("knives")]
     public Dictionary<byte, InventoryItem> Knives { get; set; } = [];
@@ -31,7 +33,8 @@ public class EquippedV5Response
     public Dictionary<byte, Dictionary<byte, ushort>>? Loadout { get; set; }
 
     [JsonPropertyName("musicKit")]
-    public InventoryItem? MusicKit { get; set; }
+    [JsonConverter(typeof(TeamInventoryItemDictionaryConverter))]
+    public Dictionary<byte, InventoryItem> MusicKit { get; set; } = [];
 
     [JsonPropertyName("pet")]
     public InventoryItem? Pet { get; set; }

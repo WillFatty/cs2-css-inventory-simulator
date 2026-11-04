@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Numerics;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Utils;
 
 namespace InventorySimulator;
 
@@ -103,9 +104,30 @@ public static class CCSPlayerControllerExtensions
 
         public void HandleInventoryLoad()
         {
+            self.SendInventoryUpdate();
+        }
+
+        public void SendInventoryUpdate()
+        {
             var inventory = self.InventoryServices?.Inventory;
             if (inventory?.IsValid == true)
                 inventory.SendInventoryUpdateEvent();
+        }
+
+        // The game caches the coin from team 0. !ws works because it sends an
+        // inventory update, which makes the game ask for the flair again.
+        public void RefreshSideCosmetics()
+        {
+            var team = self.TeamNum;
+            if (team is not ((byte)CsTeam.Terrorist or (byte)CsTeam.CounterTerrorist))
+                return;
+            self.GetState().CosmeticTeam = team;
+            self.SendInventoryUpdate();
+            var pawn = self.PlayerPawn.Value;
+            if (pawn == null || !pawn.IsValid)
+                return;
+            pawn.SetModelFromLoadout();
+            pawn.SetModelFromClass();
         }
 
         public void HandlePostRefreshInventory(PlayerInventory? oldInventory)
@@ -130,6 +152,8 @@ public static class CCSPlayerControllerExtensions
                     .Inventory?.GetGloves(self.TeamNum, ConVars.IsFallbackTeam.Value);
                 self.PlayerPawn.Value?.RefreshGloves(gloves != null);
                 self.RespawnPet();
+                if (self.GetState().CosmeticTeam != self.TeamNum)
+                    self.RefreshSideCosmetics();
             });
         }
 
@@ -388,7 +412,8 @@ public static class CCSPlayerControllerExtensions
         {
             if (!self.IsValid)
                 return;
-            var item = self.GetState().Inventory?.Graffiti;
+            var item = self.GetState()
+                .Inventory?.GetGraffiti(self.TeamNum, ConVars.IsFallbackTeam.Value);
             if (item == null || item.Def == null || item.Tint == null)
                 return;
             var pawn = self.PlayerPawn.Value;
@@ -430,7 +455,7 @@ public static class CCSPlayerControllerExtensions
             var prefix = Rules.GetChatPrefix();
             if (item.Charges <= 0)
             {
-                self.GetState().Inventory?.ClearGraffiti();
+                self.GetState().Inventory?.ClearGraffiti(self.TeamNum);
                 self.PrintToChat(Runtime.Plugin.Localizer["invsim.spray_charges_empty", prefix]);
             }
             else
@@ -441,7 +466,8 @@ public static class CCSPlayerControllerExtensions
 
         public void HandleSprayDecalCreated(CPlayerSprayDecal sprayDecal)
         {
-            var item = self.GetState().Inventory?.Graffiti;
+            var item = self.GetState()
+                .Inventory?.GetGraffiti(self.TeamNum, ConVars.IsFallbackTeam.Value);
             if (item != null && item.Def != null && item.Tint != null)
             {
                 sprayDecal.Player = item.Def.Value;
@@ -485,7 +511,8 @@ public static class CCSPlayerControllerExtensions
 
         public void IncrementMusicKitStatTrak(EventRoundMvp @event)
         {
-            var item = self.GetState().Inventory?.MusicKit;
+            var item = self.GetState()
+                .Inventory?.GetMusicKit(self.TeamNum, ConVars.IsFallbackTeam.Value);
             if (item != null && item.Uid != null && item.Stattrak != null && item.Stattrak >= 0)
             {
                 item.Stattrak += 1;

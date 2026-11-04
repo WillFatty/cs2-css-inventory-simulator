@@ -6,6 +6,7 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
+using CounterStrikeSharp.API.Modules.Utils;
 
 namespace InventorySimulator;
 
@@ -94,11 +95,14 @@ public partial class InventorySimulator
             return HookResult.Continue;
         var controllerState = player.GetState();
         var def = itemView.ItemDefinitionIndex;
+        // Flair and music kits are not team slots in the game, so it asks with team 0.
+        // Use the player's current side or a team switch keeps the previous coin.
+        var lookupTeam = ResolveCosmeticTeam(player, team, slot);
         var loadoutDef = ConVars.IsLoadoutEnabled.Value
-            ? controllerState.Inventory?.GetLoadoutDef((byte)team, (loadout_slot_t)slot)
+            ? controllerState.Inventory?.GetLoadoutDef((byte)lookupTeam, (loadout_slot_t)slot)
             : null;
         var item = controllerState.Inventory?.GetItemForSlot(
-            (byte)team,
+            (byte)lookupTeam,
             (loadout_slot_t)slot,
             loadoutDef ?? def,
             ConVars.IsFallbackTeam.Value,
@@ -121,7 +125,12 @@ public partial class InventorySimulator
         }
         if (item != null)
         {
-            var customView = controllerState.GetEconItemView(team, slot, item, itemView.Handle);
+            var customView = controllerState.GetEconItemView(
+                lookupTeam,
+                slot,
+                item,
+                itemView.Handle
+            );
             if (customView != nint.Zero)
             {
                 hook.SetReturn(customView);
@@ -129,6 +138,21 @@ public partial class InventorySimulator
             }
         }
         return HookResult.Continue;
+    }
+
+    static int ResolveCosmeticTeam(CCSPlayerController player, int team, int slot)
+    {
+        if (
+            slot != (int)loadout_slot_t.LOADOUT_SLOT_FLAIR0
+            && slot != (int)loadout_slot_t.LOADOUT_SLOT_MUSICKIT
+        )
+            return team;
+        if (team is (int)CsTeam.Terrorist or (int)CsTeam.CounterTerrorist)
+            return team;
+        var playerTeam = player.TeamNum;
+        return playerTeam is (byte)CsTeam.Terrorist or (byte)CsTeam.CounterTerrorist
+            ? playerTeam
+            : team;
     }
 
     public HookResult OnChickenManagerServerGamePostSimulate(DynamicHook hook)

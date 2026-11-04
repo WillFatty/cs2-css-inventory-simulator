@@ -40,6 +40,29 @@ public partial class InventorySimulator
         return HookResult.Continue;
     }
 
+    public HookResult OnPlayerTeam(EventPlayerTeam @event, GameEventInfo _)
+    {
+        var player = @event.Userid;
+        if (
+            player == null
+            || player.IsBot
+            || @event.Disconnect
+            || @event.Team == @event.Oldteam
+        )
+            return HookResult.Continue;
+        // Next frame is too early: the game applies the old coin after that.
+        // Wait until TeamNum has settled, then do the same inventory refresh !ws uses.
+        Runtime.Plugin.AddTimer(
+            0.2f,
+            () =>
+            {
+                if (player.IsValid)
+                    player.RefreshSideCosmetics();
+            }
+        );
+        return HookResult.Continue;
+    }
+
     public HookResult OnPlayerDeathPre(EventPlayerDeath @event, GameEventInfo _)
     {
         var attacker = @event.Attacker;
