@@ -6,6 +6,7 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Memory;
+using HexiumCSUI;
 
 namespace InventorySimulator;
 
@@ -20,6 +21,7 @@ public partial class InventorySimulator : BasePlugin
     {
         Runtime.Initialize(this);
         ConVars.Initialize(this);
+        HexiumUI.Initialize(this);
         RegisterListener<Listeners.OnEntityCreated>(OnEntityCreated);
         RegisterListener<Listeners.OnEntitySpawned>(OnEntitySpawned);
         RegisterListener<Listeners.OnEntityDeleted>(OnEntityDeleted);
@@ -50,7 +52,7 @@ public partial class InventorySimulator : BasePlugin
         OnIsSprayOnUseChanged(null, ConVars.IsSprayOnUse.Value);
         OnIsPetImmortalChanged(null, ConVars.IsPetImmortal.Value);
         OnPetRoamChanged(ConVars.IsPetFreeRoam.Value || ConVars.IsPetRespawn.Value);
-        InitializeCustomFeatures();
+        InitializeCustomFeatures(hotReload);
     }
 
     private string _lastUrl = "";
@@ -158,6 +160,7 @@ public partial class InventorySimulator : BasePlugin
         OnIsPetImmortalChanged(null, false);
         OnPetRoamChanged(false);
         UnloadCustomFeatures();
+        HexiumUI.Shutdown();
         CCSPlayerControllerState.ClearAllEconItemView();
     }
 }

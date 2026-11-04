@@ -148,6 +148,12 @@ public static class ConVars
         1f
     );
 
+    public static readonly FakeConVar<bool> UsePanoramaUI = new(
+        "invsim_panorama_ui",
+        "When true, case opening and trade-up notifications use the HexiumCS-UI Workshop Panorama toast instead of chat.",
+        false
+    );
+
     public static readonly FakeConVar<bool> IsFallbackTeam = new(
         "invsim_fallback_team",
         "Allow using skins from any team (prioritizes current team first).",

@@ -6,6 +6,7 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Utils;
 
 namespace InventorySimulator;
 
@@ -126,5 +127,104 @@ public partial class InventorySimulator
                 return;
             player.SignIn();
         }
+    }
+
+    [ConsoleCommand(
+        "css_inventorypanorama",
+        "Toggle your Panorama case/trade-up notifications (!inventorypanorama [0|1])"
+    )]
+    [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
+    public void OnPanoramaCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        if (player is null || player.IsBot || player.IsHLTV)
+            return;
+
+        var steamId = player.AuthorizedSteamID?.SteamId64;
+        if (steamId is null)
+            return;
+
+        var currentlyEnabled = ConVars.UsePanoramaUI.Value && !_panoramaOptOut.Contains(steamId.Value);
+        if (!TryParseEnableArg(command.GetArg(1), currentlyEnabled, out var enabled, out var error))
+        {
+            command.ReplyToCommand(error);
+            return;
+        }
+
+        if (enabled)
+            _panoramaOptOut.Remove(steamId.Value);
+        else
+            _panoramaOptOut.Add(steamId.Value);
+
+        if (enabled && !ConVars.UsePanoramaUI.Value)
+        {
+            player.PrintToChat($" {ReplaceColorTags(Localizer["invsim.panorama_disabled_server", Rules.GetChatPrefix()])}");
+            return;
+        }
+
+        player.PrintToChat(enabled
+            ? $" {ReplaceColorTags(Localizer["invsim.panorama_enabled", Rules.GetChatPrefix()])}"
+            : $" {ReplaceColorTags(Localizer["invsim.panorama_disabled", Rules.GetChatPrefix()])}");
+    }
+
+    /// <summary>
+    /// Parses 0/1, on/off, true/false. Empty arg toggles <paramref name="current"/>.
+    /// </summary>
+    private static bool TryParseEnableArg(string arg, bool current, out bool enabled, out string error)
+    {
+        enabled = current;
+        error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(arg))
+        {
+            enabled = !current;
+            return true;
+        }
+
+        switch (arg.Trim().ToLowerInvariant())
+        {
+            case "1":
+            case "on":
+            case "true":
+            case "enable":
+            case "enabled":
+                enabled = true;
+                return true;
+            case "0":
+            case "off":
+            case "false":
+            case "disable":
+            case "disabled":
+                enabled = false;
+                return true;
+            default:
+                error = "Usage: !inventorypanorama [0|1]";
+                return false;
+        }
+    }
+
+    private static string ReplaceColorTags(string message)
+    {
+        return message
+            .Replace("{default}", $"{ChatColors.Default}")
+            .Replace("{white}", $"{ChatColors.White}")
+            .Replace("{darkred}", $"{ChatColors.DarkRed}")
+            .Replace("{green}", $"{ChatColors.Green}")
+            .Replace("{lightyellow}", $"{ChatColors.LightYellow}")
+            .Replace("{lightblue}", $"{ChatColors.LightBlue}")
+            .Replace("{olive}", $"{ChatColors.Olive}")
+            .Replace("{lime}", $"{ChatColors.Lime}")
+            .Replace("{red}", $"{ChatColors.Red}")
+            .Replace("{lightpurple}", $"{ChatColors.LightPurple}")
+            .Replace("{purple}", $"{ChatColors.Purple}")
+            .Replace("{grey}", $"{ChatColors.Grey}")
+            .Replace("{yellow}", $"{ChatColors.Yellow}")
+            .Replace("{gold}", $"{ChatColors.Gold}")
+            .Replace("{silver}", $"{ChatColors.Silver}")
+            .Replace("{blue}", $"{ChatColors.Blue}")
+            .Replace("{darkblue}", $"{ChatColors.DarkBlue}")
+            .Replace("{bluegrey}", $"{ChatColors.BlueGrey}")
+            .Replace("{magenta}", $"{ChatColors.Magenta}")
+            .Replace("{lightred}", $"{ChatColors.LightRed}")
+            .Replace("{orange}", $"{ChatColors.Orange}");
     }
 }

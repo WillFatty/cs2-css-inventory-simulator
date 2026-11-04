@@ -9,5 +9,8 @@
   "invsim.spray_charges_empty": "{0}Seu grafite ficou sem cargas e foi removido.",
   "invsim.login_in_progress": "{0}Tentando autenticar ao seu inventário...",
   "invsim.login": "{0}Acesse {1} para ver seu inventário.",
-  "invsim.login_failed": "{0}Não foi possível autenticar ao seu inventário, tente novamente mais tarde."
+  "invsim.login_failed": "{0}Não foi possível autenticar ao seu inventário, tente novamente mais tarde.",
+  "invsim.panorama_disabled_server": "{0}Panorama está desativado neste servidor — notificações ficam no chat.",
+  "invsim.panorama_enabled": "{0}Notificações Panorama ativadas.",
+  "invsim.panorama_disabled": "{0}Notificações Panorama desativadas (apenas chat)."
 }

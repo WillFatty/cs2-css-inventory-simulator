@@ -4,10 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 using System.Collections.Concurrent;
+using System.Text;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 using CounterStrikeSharp.API.Modules.Timers;
+using HexiumCSUI;
 using Timer = CounterStrikeSharp.API.Modules.Timers.Timer;
 
 namespace InventorySimulator;
@@ -21,15 +23,44 @@ public partial class InventorySimulator
     private static readonly ConcurrentQueue<string> PendingUnboxBroadcasts = new();
     private static readonly Random _roundWinRandom = new();
 
+    /// <summary>
+    /// CSS Localizer turns {yellow} into chat bytes; HexiumUI needs {yellow} tags.
+    /// </summary>
+    private static readonly Dictionary<char, string> ChatCodeToTag = new()
+    {
+        ['\x01'] = "white",
+        ['\x02'] = "darkred",
+        ['\x03'] = "lightpurple",
+        ['\x04'] = "green",
+        ['\x05'] = "olive",
+        ['\x06'] = "lime",
+        ['\x07'] = "red",
+        ['\x08'] = "grey",
+        ['\x09'] = "yellow",
+        ['\x0A'] = "silver",
+        ['\x0B'] = "blue",
+        ['\x0C'] = "darkblue",
+        ['\x0E'] = "purple",
+        ['\x0F'] = "lightred",
+        ['\x10'] = "gold",
+    };
+
+    /// <summary>SteamIDs that opted out of Panorama notifications (chat fallback).</summary>
+    internal static readonly HashSet<ulong> _panoramaOptOut = new();
+
     private Timer? _unboxPollTimer;
     private Timer? _unboxBroadcastDrainTimer;
 
-    public void InitializeCustomFeatures()
+    public void InitializeCustomFeatures(bool hotReload)
     {
         ConVars.UnboxPollInterval.ValueChanged += OnUnboxPollIntervalChanged;
         NoCasesPersistence.Load();
         StartUnboxPollTimer();
         StartUnboxBroadcastDrainTimer();
+
+        // GetPlayers() is unsafe during cold Load (globals not ready). Only seed after hot-reload.
+        if (hotReload)
+            Server.NextWorldUpdate(SeedJoinTimesForConnectedPlayers);
     }
 
     public void UnloadCustomFeatures()
@@ -66,6 +97,16 @@ public partial class InventorySimulator
         );
     }
 
+    private static void SeedJoinTimesForConnectedPlayers()
+    {
+        foreach (var player in Utilities.GetPlayers())
+        {
+            if (!player.IsValid || player.IsBot || player.SteamID == 0)
+                continue;
+            PlayerJoinTimeUtc.TryAdd(player.SteamID, DateTime.UtcNow);
+        }
+    }
+
     public void RecordPlayerJoinTime(CCSPlayerController player)
     {
         if (player.IsValid && !player.IsBot)
@@ -77,12 +118,14 @@ public partial class InventorySimulator
         LastBroadcastedCaseOpenedAt.TryRemove(steamId, out _);
         LastBroadcastedTradeUpCompletedAt.TryRemove(steamId, out _);
         PlayerJoinTimeUtc.TryRemove(steamId, out _);
+        _panoramaOptOut.Remove(steamId);
     }
 
     private static string GetRarityChatColor(string? rarity)
     {
-        return rarity switch
+        return rarity?.Trim().ToLowerInvariant() switch
         {
+            "common" or "default" => "{bluegrey}",
             "uncommon" => "{lightblue}",
             "rare" => "{blue}",
             "mythical" => "{purple}",
@@ -93,16 +136,86 @@ public partial class InventorySimulator
         };
     }
 
+    /// <summary>
+    /// Convert Localizer chat color bytes back to {color} tags for HexiumUI.
+    /// Leaves existing {color} tags (e.g. rarity arg) intact.
+    /// </summary>
+    private static string ToPanoramaColorTags(string message)
+    {
+        var needsConvert = false;
+        foreach (var ch in message)
+        {
+            if (ch is >= '\u0001' and <= '\u0010')
+            {
+                needsConvert = true;
+                break;
+            }
+        }
+
+        if (!needsConvert)
+            return message.TrimStart();
+
+        var sb = new StringBuilder(message.Length + 24);
+        foreach (var ch in message)
+        {
+            if (ch is >= '\u0001' and <= '\u0010')
+            {
+                if (ChatCodeToTag.TryGetValue(ch, out var name))
+                {
+                    sb.Append('{');
+                    sb.Append(name);
+                    sb.Append('}');
+                }
+
+                continue;
+            }
+
+            sb.Append(ch);
+        }
+
+        return sb.ToString().TrimStart();
+    }
+
     public void DrainOneUnboxBroadcast()
     {
         if (!PendingUnboxBroadcasts.TryDequeue(out var message))
             return;
+
+        // Queue stores {color}-tagged text (panorama-ready). Chat needs CSS color bytes.
+        var chatMessage = message.ReplaceColorTags();
+        // Chat keeps the "••" prefix; Panorama toasts look cleaner without it.
+        var panoramaMessage = StripLeadingBulletPrefix(message);
+
         foreach (
             var p in Utilities
                 .GetPlayers()
                 .Where(p => p.IsValid && !p.IsBot && !p.GetState().HideUnboxTradeUpMessages)
         )
-            p.PrintToChat(message);
+        {
+            if (WantsPanorama(p))
+                HexiumUI.ShowNotification(p, "Inventory", panoramaMessage, 5);
+            else
+                p.PrintToChat(chatMessage);
+        }
+    }
+
+    private static string StripLeadingBulletPrefix(string message)
+    {
+        var trimmed = message.TrimStart();
+        if (trimmed.StartsWith("••", StringComparison.Ordinal))
+            return trimmed[2..].TrimStart();
+        if (trimmed.StartsWith("•", StringComparison.Ordinal))
+            return trimmed[1..].TrimStart();
+        return message;
+    }
+
+    internal static bool WantsPanorama(CCSPlayerController player)
+    {
+        if (!ConVars.UsePanoramaUI.Value)
+            return false;
+
+        var steamId = player.AuthorizedSteamID?.SteamId64;
+        return steamId is null || !_panoramaOptOut.Contains(steamId.Value);
     }
 
     public void HandleLastCaseOpeningAndTradeUpPoll()
@@ -110,6 +223,7 @@ public partial class InventorySimulator
         var players = Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot).ToList();
         if (players.Count == 0)
             return;
+
         _ = ProcessPluginSnapshotAsync(players);
     }
 
@@ -119,6 +233,8 @@ public partial class InventorySimulator
         var snapshot = await Api.FetchPluginSnapshot(steamIds);
         if (snapshot == null)
             return;
+
+        // After await we are off the main thread — only schedule game-thread work.
         Server.NextWorldUpdate(() =>
         {
             foreach (var player in toPoll)
@@ -128,6 +244,7 @@ public partial class InventorySimulator
                 var steamIdStr = player.SteamID.ToString();
                 if (!snapshot.TryGetValue(steamIdStr, out var entry) || entry == null)
                     continue;
+
                 ProcessCaseOpeningFromSnapshot(player, entry);
                 ProcessTradeUpFromSnapshot(player, entry);
                 ProcessEquippedFromSnapshot(player, entry);
@@ -143,6 +260,7 @@ public partial class InventorySimulator
         var opening = entry.LastCaseOpening;
         if (opening == null || string.IsNullOrEmpty(opening.OpenedAt))
             return;
+
         var steamId = player.SteamID;
         var openedAt = opening.OpenedAt;
         if (
@@ -154,21 +272,33 @@ public partial class InventorySimulator
             )
         )
             return;
-        if (!PlayerJoinTimeUtc.TryGetValue(steamId, out var joinTime) || openedAtUtc < joinTime)
+
+        // Missing join time (e.g. race after reload): seed now and skip historical openings.
+        if (!PlayerJoinTimeUtc.TryGetValue(steamId, out var joinTime))
+        {
+            PlayerJoinTimeUtc[steamId] = DateTime.UtcNow;
+            return;
+        }
+
+        if (openedAtUtc < joinTime)
             return;
         if (LastBroadcastedCaseOpenedAt.TryGetValue(steamId, out var last) && last == openedAt)
             return;
+
         LastBroadcastedCaseOpenedAt[steamId] = openedAt;
         var itemName = opening.UnlockedItemName ?? "";
         var rarityColor = GetRarityChatColor(opening.Rarity);
-        var message = Localizer[
-            "invsim.last_case_unbox_line1",
-            opening.UserName,
-            itemName,
-            rarityColor
-        ]
-            .ToString();
-        PendingUnboxBroadcasts.Enqueue(message.ReplaceColorTags());
+        // Localizer converts {yellow}/{white} to chat bytes — restore tags for Panorama.
+        var message = ToPanoramaColorTags(
+            Localizer[
+                "invsim.last_case_unbox_line1",
+                opening.UserName,
+                itemName,
+                rarityColor
+            ]
+                .ToString()
+        );
+        PendingUnboxBroadcasts.Enqueue(message);
     }
 
     private void ProcessTradeUpFromSnapshot(
@@ -179,6 +309,7 @@ public partial class InventorySimulator
         var tradeUp = entry.LastTradeUp;
         if (tradeUp == null || string.IsNullOrEmpty(tradeUp.CompletedAt))
             return;
+
         var steamId = player.SteamID;
         var completedAt = tradeUp.CompletedAt;
         if (
@@ -190,24 +321,34 @@ public partial class InventorySimulator
             )
         )
             return;
-        if (!PlayerJoinTimeUtc.TryGetValue(steamId, out var joinTime) || completedAtUtc < joinTime)
+
+        if (!PlayerJoinTimeUtc.TryGetValue(steamId, out var joinTime))
+        {
+            PlayerJoinTimeUtc[steamId] = DateTime.UtcNow;
+            return;
+        }
+
+        if (completedAtUtc < joinTime)
             return;
         if (
             LastBroadcastedTradeUpCompletedAt.TryGetValue(steamId, out var last)
             && last == completedAt
         )
             return;
+
         LastBroadcastedTradeUpCompletedAt[steamId] = completedAt;
         var itemName = tradeUp.OutputItemName ?? "";
         var rarityColor = GetRarityChatColor(tradeUp.Rarity);
-        var message = Localizer[
-            "invsim.last_tradeup_line1",
-            tradeUp.UserName,
-            itemName,
-            rarityColor
-        ]
-            .ToString();
-        PendingUnboxBroadcasts.Enqueue(message.ReplaceColorTags());
+        var message = ToPanoramaColorTags(
+            Localizer[
+                "invsim.last_tradeup_line1",
+                tradeUp.UserName,
+                itemName,
+                rarityColor
+            ]
+                .ToString()
+        );
+        PendingUnboxBroadcasts.Enqueue(message);
     }
 
     private void ProcessEquippedFromSnapshot(
@@ -249,7 +390,8 @@ public partial class InventorySimulator
         var applyScheduled = false;
         try
         {
-            var response = await Api.FetchEquippedAsync(player.SteamID);
+            var steamId = player.SteamID;
+            var response = await Api.FetchEquippedAsync(steamId);
             if (response == null)
             {
                 // Advance so a bad snapshot tick does not retry forever.
@@ -345,7 +487,6 @@ public partial class InventorySimulator
 
         var casesRaw = ConVars.RoundWinCases.Value.Trim();
         var userId = player.SteamID.ToString();
-        var prefix = Rules.GetChatPrefix();
 
         if (!string.IsNullOrEmpty(casesRaw))
         {
@@ -362,9 +503,7 @@ public partial class InventorySimulator
                 Server.NextWorldUpdate(() =>
                 {
                     if (player.IsValid)
-                        player.PrintToChat(
-                            Runtime.Plugin.Localizer["invsim.roundwin_case", prefix]
-                        );
+                        NotifyRoundWinCase(player);
                 });
                 return;
             }
@@ -374,7 +513,24 @@ public partial class InventorySimulator
         Server.NextWorldUpdate(() =>
         {
             if (player.IsValid)
-                player.PrintToChat(Runtime.Plugin.Localizer["invsim.roundwin_case", prefix]);
+                NotifyRoundWinCase(player);
         });
+    }
+
+    private static void NotifyRoundWinCase(CCSPlayerController player)
+    {
+        var prefix = ConVars.ChatPrefix.Value;
+        if (!string.IsNullOrEmpty(prefix) && !prefix.EndsWith(' '))
+            prefix += " ";
+
+        // Prefix keeps {color} tags; Localizer may still inject chat bytes — normalize.
+        var tagged = ToPanoramaColorTags(
+            Runtime.Plugin.Localizer["invsim.roundwin_case", prefix].ToString()
+        );
+
+        if (WantsPanorama(player))
+            HexiumUI.ShowNotification(player, "Case Received", tagged, 5);
+        else
+            player.PrintToChat(tagged.ReplaceColorTags());
     }
 }
