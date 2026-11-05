@@ -14,7 +14,7 @@ public class ConsumeItemSprayRequest
     public string? ApiKey { get; set; }
 
     [JsonPropertyName("targetUid")]
-    public required int TargetUid { get; set; }
+    public required long TargetUid { get; set; }
 
     [JsonPropertyName("userId")]
     public required string UserId { get; set; }

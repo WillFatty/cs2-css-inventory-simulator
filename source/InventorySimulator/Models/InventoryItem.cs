@@ -49,7 +49,7 @@ public class InventoryItem
     public int? Tint { get; set; }
 
     [JsonPropertyName("uid")]
-    public int? Uid { get; set; }
+    public long? Uid { get; set; }
 
     [JsonPropertyName("upgradeLevel")]
     public int? UpgradeLevel { get; set; }

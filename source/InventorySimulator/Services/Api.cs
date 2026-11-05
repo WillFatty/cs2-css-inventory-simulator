@@ -47,10 +47,10 @@ public class Api
 
     private static volatile bool _isSuspended = false;
 
-    private static readonly ConcurrentDictionary<(ulong, int), RateLimitBucket> _statTrakBuckets =
+    private static readonly ConcurrentDictionary<(ulong, long), RateLimitBucket> _statTrakBuckets =
         new();
 
-    private static readonly ConcurrentDictionary<(ulong, int), RateLimitBucket> _sprayBuckets =
+    private static readonly ConcurrentDictionary<(ulong, long), RateLimitBucket> _sprayBuckets =
         new();
 
     private class RateLimitBucket(double capacity, double refillIntervalSeconds)
@@ -142,9 +142,9 @@ public class Api
 
     private static bool CanSendPublicApiRequest(
         bool isEnabled,
-        ConcurrentDictionary<(ulong, int), RateLimitBucket> buckets,
+        ConcurrentDictionary<(ulong, long), RateLimitBucket> buckets,
         ulong userId,
-        int targetUid,
+        long targetUid,
         double capacity,
         double refillIntervalSeconds
     )
@@ -217,7 +217,7 @@ public class Api
         return null;
     }
 
-    public static async Task SendStatTrakIncrementAsync(ulong userId, int targetUid)
+    public static async Task SendStatTrakIncrementAsync(ulong userId, long targetUid)
     {
         if (_isSuspended)
             return;
@@ -250,12 +250,12 @@ public class Api
         }
     }
 
-    public static async void SendStatTrakIncrement(ulong userId, int targetUid)
+    public static async void SendStatTrakIncrement(ulong userId, long targetUid)
     {
         await SendStatTrakIncrementAsync(userId, targetUid);
     }
 
-    public static async Task SendConsumeItemSprayAsync(ulong userId, int targetUid)
+    public static async Task SendConsumeItemSprayAsync(ulong userId, long targetUid)
     {
         if (_isSuspended)
             return;
@@ -280,7 +280,7 @@ public class Api
         await SendPostAsync(url, request, suspendOnUnauthorized: true);
     }
 
-    public static async void SendConsumeItemSpray(ulong userId, int targetUid)
+    public static async void SendConsumeItemSpray(ulong userId, long targetUid)
     {
         await SendConsumeItemSprayAsync(userId, targetUid);
     }
