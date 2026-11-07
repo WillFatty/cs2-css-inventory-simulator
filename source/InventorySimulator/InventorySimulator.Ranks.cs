@@ -389,11 +389,68 @@ public partial class InventorySimulator
         if (!RanksActive)
             return;
 
-        SetRankTrailEquipped(_playersWithNadeTrail, steamId, trails?.Nade);
+        SetRankNadeTrails(steamId, trails?.Nade, trails?.NadeByType);
         SetRankTrailEquipped(_playersWithPlayerTrail, steamId, trails?.Player);
 
         if (!_playersWithPlayerTrail.ContainsKey(steamId))
             _playerTrailLastOrigin.Remove(steamId);
+    }
+
+    private void SetRankNadeTrails(
+        ulong steamId,
+        Dictionary<byte, string>? nade,
+        Dictionary<byte, Dictionary<string, string>>? nadeByType
+    )
+    {
+        var result = new RankTrailColors
+        {
+            Terrorist = ParseRankTrailColor(nade, (byte)CsTeam.Terrorist),
+            CounterTerrorist = ParseRankTrailColor(nade, (byte)CsTeam.CounterTerrorist),
+            TerroristByType = ParseTrailColorsByType(
+                nadeByType,
+                (byte)CsTeam.Terrorist
+            ),
+            CounterTerroristByType = ParseTrailColorsByType(
+                nadeByType,
+                (byte)CsTeam.CounterTerrorist
+            ),
+        };
+
+        if (
+            result.Terrorist is null
+            && result.CounterTerrorist is null
+            && result.TerroristByType is null
+            && result.CounterTerroristByType is null
+        )
+        {
+            _playersWithNadeTrail.TryRemove(steamId, out _);
+            return;
+        }
+
+        _playersWithNadeTrail[steamId] = result;
+    }
+
+    private static Dictionary<string, Color>? ParseTrailColorsByType(
+        Dictionary<byte, Dictionary<string, string>>? colors,
+        byte team
+    )
+    {
+        if (
+            colors is null
+            || !colors.TryGetValue(team, out var entries)
+            || entries is null
+        )
+            return null;
+
+        var result = new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (modelKey, colorHex) in entries)
+        {
+            if (string.IsNullOrWhiteSpace(modelKey) || string.IsNullOrWhiteSpace(colorHex))
+                continue;
+            var parsed = ColorTranslator.FromHtml(colorHex.Trim());
+            result[modelKey] = Color.FromArgb(255, parsed.R, parsed.G, parsed.B);
+        }
+        return result.Count > 0 ? result : null;
     }
 
     private static void SetRankTrailEquipped(
@@ -466,7 +523,10 @@ public partial class InventorySimulator
             )
                 return;
 
-            var trailColor = trailColors.ForTeam(thrower.TeamNum);
+            var trailColor = trailColors.ForGrenade(
+                thrower.TeamNum,
+                grenade.DesignerName
+            );
             if (trailColor == null)
                 return;
 
@@ -637,6 +697,8 @@ public partial class InventorySimulator
     {
         public Color? Terrorist { get; init; }
         public Color? CounterTerrorist { get; init; }
+        public Dictionary<string, Color>? TerroristByType { get; init; }
+        public Dictionary<string, Color>? CounterTerroristByType { get; init; }
 
         public Color? ForTeam(byte team)
         {
@@ -645,6 +707,24 @@ public partial class InventorySimulator
             if (team == (byte)CsTeam.CounterTerrorist)
                 return CounterTerrorist;
             return null;
+        }
+
+        public Color? ForGrenade(byte team, string designerName)
+        {
+            var byType = team == (byte)CsTeam.Terrorist
+                ? TerroristByType
+                : team == (byte)CsTeam.CounterTerrorist
+                    ? CounterTerroristByType
+                    : null;
+            if (byType is not null)
+            {
+                var modelKey = designerName.EndsWith("_projectile", StringComparison.Ordinal)
+                    ? designerName[..^"_projectile".Length]
+                    : designerName;
+                if (byType.TryGetValue(modelKey, out var color))
+                    return color;
+            }
+            return ForTeam(team);
         }
     }
 

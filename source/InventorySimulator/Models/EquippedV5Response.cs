@@ -55,6 +55,10 @@ public class EquippedTrailsResponse
     [JsonConverter(typeof(TeamTrailColorDictionaryConverter))]
     public Dictionary<byte, string>? Nade { get; set; }
 
+    /// <summary>Team-keyed grenade model keys and their equipped trail colors.</summary>
+    [JsonPropertyName("nadeByType")]
+    public Dictionary<byte, Dictionary<string, string>>? NadeByType { get; set; }
+
     /// <summary>Team-keyed hex colors of the equipped player trails.</summary>
     [JsonPropertyName("player")]
     [JsonConverter(typeof(TeamTrailColorDictionaryConverter))]
