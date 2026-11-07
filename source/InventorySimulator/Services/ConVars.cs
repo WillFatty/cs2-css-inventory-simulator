@@ -202,6 +202,109 @@ public static class ConVars
         true
     );
 
+    public static readonly FakeConVar<bool> IsRankEnabled = new(
+        "invsim_rank_enabled",
+        "Enable kill/round-win points and the leaderboard (requires invsim_apikey).",
+        true
+    );
+
+    public static readonly FakeConVar<int> RankStartingPoints = new(
+        "invsim_rank_starting_points",
+        "Points a player starts with the first time their rank record is created.",
+        1000
+    );
+
+    public static readonly FakeConVar<int> RankKillPoints = new(
+        "invsim_rank_kill_points",
+        "Points awarded per kill.",
+        5
+    );
+
+    public static readonly FakeConVar<int> RankHeadshotPoints = new(
+        "invsim_rank_headshot_points",
+        "Bonus points for a headshot kill.",
+        2
+    );
+
+    public static readonly FakeConVar<int> RankKnifeKillPoints = new(
+        "invsim_rank_knife_kill_points",
+        "Bonus points for a knife kill.",
+        5
+    );
+
+    public static readonly FakeConVar<int> RankZeusKillPoints = new(
+        "invsim_rank_zeus_kill_points",
+        "Bonus points for a zeus kill.",
+        3
+    );
+
+    public static readonly FakeConVar<int> RankNoscopePoints = new(
+        "invsim_rank_noscope_points",
+        "Bonus points for a noscope kill.",
+        3
+    );
+
+    public static readonly FakeConVar<int> RankSmokeKillPoints = new(
+        "invsim_rank_smoke_kill_points",
+        "Bonus points for a kill through smoke.",
+        2
+    );
+
+    public static readonly FakeConVar<int> RankWallbangPoints = new(
+        "invsim_rank_wallbang_points",
+        "Bonus points for a wallbang kill.",
+        2
+    );
+
+    public static readonly FakeConVar<int> RankDeathPoints = new(
+        "invsim_rank_death_points",
+        "Points awarded on death (negative values deduct points).",
+        -2
+    );
+
+    public static readonly FakeConVar<int> RankRoundWinPoints = new(
+        "invsim_rank_roundwin_points",
+        "Points awarded to each player on the winning team at round end.",
+        2
+    );
+
+    public static readonly FakeConVar<int> RankRoundLossPoints = new(
+        "invsim_rank_roundloss_points",
+        "Points awarded to each player on the losing team at round end (negative values deduct points).",
+        -1
+    );
+
+    public static readonly FakeConVar<int> RankMinPlayers = new(
+        "invsim_rank_min_players",
+        "Minimum number of human players required for points to be awarded.",
+        2
+    );
+
+    public static readonly FakeConVar<bool> RankPointsForBots = new(
+        "invsim_rank_points_for_bots",
+        "Allow points to be earned from kills on bots.",
+        false
+    );
+
+    public static readonly FakeConVar<bool> RankPointsDuringWarmup = new(
+        "invsim_rank_points_during_warmup",
+        "Allow points to be earned during warmup.",
+        false
+    );
+
+    public static readonly FakeConVar<bool> RankShowPointMessages = new(
+        "invsim_rank_show_messages",
+        "Show chat/panorama notifications when points change.",
+        true
+    );
+
+    public static readonly FakeConVar<bool> RankShowPremierOnScoreboard = new(
+        "invsim_rank_show_premier",
+        "Display points as a Premier ranking on the scoreboard.",
+        true
+    );
+
+
     public static void Initialize(BasePlugin plugin)
     {
         plugin.RegisterFakeConVars(typeof(ConVars));

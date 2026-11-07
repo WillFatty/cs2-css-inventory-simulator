@@ -28,6 +28,7 @@ public partial class InventorySimulator
             player.GetState().IsRoundWinCasesDisabled = NoCasesPersistence.IsOptedOut(
                 player.SteamID
             );
+            HandleRankPlayerConnect(player);
         }
         return HookResult.Continue;
     }
@@ -36,7 +37,10 @@ public partial class InventorySimulator
     {
         var player = @event.Userid;
         if (player != null && !player.IsBot)
+        {
             player.HandleSpawn();
+            HandleRankPlayerSpawn(player);
+        }
         return HookResult.Continue;
     }
 
@@ -75,6 +79,7 @@ public partial class InventorySimulator
             if (isAttackerValid && isVictimValid)
                 attacker.IncrementWeaponStatTrak(@event.Weapon, @event.WeaponItemid);
         }
+        HandleRankPlayerDeath(@event);
         return HookResult.Continue;
     }
 
@@ -100,6 +105,7 @@ public partial class InventorySimulator
             if (!player.GetState().IsRoundWinCasesDisabled)
                 HandleRoundWinCaseReward(player);
         }
+        HandleRankRoundEnd(@event);
         return HookResult.Continue;
     }
 
@@ -107,7 +113,10 @@ public partial class InventorySimulator
     {
         var player = @event.Userid;
         if (player != null && !player.IsBot)
+        {
             player.HandleDisconnect();
+            HandleRankPlayerDisconnect(player);
+        }
         return HookResult.Continue;
     }
 }

@@ -54,6 +54,7 @@ public partial class InventorySimulator : BasePlugin
         OnIsPetImmortalChanged(null, ConVars.IsPetImmortal.Value);
         OnPetRoamChanged(ConVars.IsPetFreeRoam.Value || ConVars.IsPetRespawn.Value);
         InitializeCustomFeatures(hotReload);
+        InitializeRanksFeatures(hotReload);
     }
 
     private string _lastUrl = "";
@@ -161,6 +162,7 @@ public partial class InventorySimulator : BasePlugin
         OnIsPetImmortalChanged(null, false);
         OnPetRoamChanged(false);
         UnloadCustomFeatures();
+        UnloadRanksFeatures();
         HexiumUI.Shutdown();
         CCSPlayerControllerState.ClearAllEconItemView();
     }

@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace InventorySimulator;
@@ -316,6 +317,58 @@ public class Api
         await PostAsync(url, request);
     }
 
+    public static async Task<PointsStateResponse?> FetchPointsStateAsync(
+        string userId,
+        string name,
+        int startingPoints
+    )
+    {
+        var url = GetUrl("/api/points/state");
+        var request = new PointsStateRequest
+        {
+            ApiKey = ConVars.ApiKey.Value,
+            Name = name,
+            StartingPoints = startingPoints,
+            UserId = userId,
+        };
+        return await PostAsync<PointsStateResponse>(url, request);
+    }
+
+    public static async Task<int?> AdjustPointsAsync(
+        string userId,
+        int delta,
+        string name = ""
+    )
+    {
+        var url = GetUrl("/api/points/adjust");
+        var request = new PointsAdjustRequest
+        {
+            ApiKey = ConVars.ApiKey.Value,
+            Delta = delta,
+            Name = name,
+            UserId = userId,
+        };
+        var response = await PostAsync<PointsAdjustResponse>(url, request);
+        return response?.Points;
+    }
+
+    public static async Task<PointsLeaderboardResponse?> FetchPointsLeaderboardAsync(
+        string userId,
+        int page,
+        int pageSize
+    )
+    {
+        var url = GetUrl("/api/points/leaderboard");
+        var request = new PointsLeaderboardRequest
+        {
+            ApiKey = ConVars.ApiKey.Value,
+            Page = page,
+            PageSize = pageSize,
+            UserId = userId,
+        };
+        return await PostAsync<PointsLeaderboardResponse>(url, request);
+    }
+
     private static readonly JsonSerializerOptions SnapshotJsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -345,4 +398,56 @@ public class Api
             return null;
         }
     }
+
+    private sealed class PointsStateRequest
+    {
+        [JsonPropertyName("apiKey")]
+        public required string ApiKey { get; set; }
+
+        [JsonPropertyName("userId")]
+        public required string UserId { get; set; }
+
+        [JsonPropertyName("startingPoints")]
+        public int StartingPoints { get; set; }
+
+        [JsonPropertyName("name")]
+        public required string Name { get; set; }
+    }
+
+    private sealed class PointsAdjustRequest
+    {
+        [JsonPropertyName("apiKey")]
+        public required string ApiKey { get; set; }
+
+        [JsonPropertyName("userId")]
+        public required string UserId { get; set; }
+
+        [JsonPropertyName("delta")]
+        public required int Delta { get; set; }
+
+        [JsonPropertyName("name")]
+        public required string Name { get; set; }
+    }
+
+    private sealed class PointsAdjustResponse
+    {
+        [JsonPropertyName("points")]
+        public int Points { get; set; }
+    }
+
+    private sealed class PointsLeaderboardRequest
+    {
+        [JsonPropertyName("apiKey")]
+        public required string ApiKey { get; set; }
+
+        [JsonPropertyName("userId")]
+        public required string UserId { get; set; }
+
+        [JsonPropertyName("page")]
+        public required int Page { get; set; }
+
+        [JsonPropertyName("pageSize")]
+        public required int PageSize { get; set; }
+    }
+
 }

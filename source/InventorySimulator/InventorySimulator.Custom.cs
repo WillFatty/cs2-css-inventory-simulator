@@ -378,7 +378,7 @@ public partial class InventorySimulator
         _ = ApplyAuthoritativeEquippedAsync(player, entry.SyncedAt);
     }
 
-    private static async Task ApplyAuthoritativeEquippedAsync(
+    private async Task ApplyAuthoritativeEquippedAsync(
         CCSPlayerController player,
         long snapshotSyncedAt
     )
@@ -398,6 +398,7 @@ public partial class InventorySimulator
                 state.LastEquippedSyncedAt = snapshotSyncedAt;
                 return;
             }
+            ApplyRankTrailsFromEquipped(steamId, response.Trails);
             var newInventory = new PlayerInventory(response);
             var newFingerprint = newInventory.ComputeFingerprint();
             // StatTrak-only sync (kills): keep counts up to date without re-giving skins.

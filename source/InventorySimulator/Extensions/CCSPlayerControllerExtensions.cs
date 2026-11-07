@@ -88,6 +88,10 @@ public static class CCSPlayerControllerExtensions
             var response = await Api.FetchEquippedAsync(self.SteamID);
             if (response != null)
             {
+                (Runtime.Plugin as InventorySimulator)?.ApplyRankTrailsFromEquipped(
+                    self.SteamID,
+                    response.Trails
+                );
                 var inventory = new PlayerInventory(response);
                 inventory.InitializeWearOverrides();
                 controllerState.ClearEconItemView();

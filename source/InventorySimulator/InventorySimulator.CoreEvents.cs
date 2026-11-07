@@ -23,6 +23,7 @@ public partial class InventorySimulator
 
     public void OnEntityCreated(CEntityInstance entity)
     {
+        HandleRankEntityCreated(entity);
         var designerName = entity.DesignerName;
         if (designerName == "player_spray_decal")
         {
@@ -63,6 +64,7 @@ public partial class InventorySimulator
 
     public void OnEntityDeleted(CEntityInstance entity)
     {
+        HandleRankEntityDeleted(entity);
         var designerName = entity.DesignerName;
         if (designerName == "cs_player_controller")
         {
