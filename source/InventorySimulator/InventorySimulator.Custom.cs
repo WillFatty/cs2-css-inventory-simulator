@@ -525,13 +525,19 @@ public partial class InventorySimulator
             prefix += " ";
 
         // Prefix keeps {color} tags; Localizer may still inject chat bytes — normalize.
-        var tagged = ToPanoramaColorTags(
-            Runtime.Plugin.Localizer["invsim.roundwin_case", prefix].ToString()
-        );
-
         if (WantsPanorama(player))
-            HexiumUI.ShowNotification(player, "Case Received", tagged, 5);
+        {
+            var panoramaMessage = ToPanoramaColorTags(
+                Runtime.Plugin.Localizer["invsim.roundwin_case", ""].ToString()
+            );
+            HexiumUI.ShowNotification(player, "Case Received", panoramaMessage, 5);
+        }
         else
+        {
+            var tagged = ToPanoramaColorTags(
+                Runtime.Plugin.Localizer["invsim.roundwin_case", prefix].ToString()
+            );
             player.PrintToChat(tagged.ReplaceColorTags());
+        }
     }
 }
