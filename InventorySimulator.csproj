@@ -4,8 +4,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <BaseOutputPath>bin\</BaseOutputPath>
-    <OutputPath>$(BaseOutputPath)Release\plugins\InventorySimulator</OutputPath>
+    <!-- Build straight into a folder that mirrors the server's addon layout. -->
+    <OutputPath>addons\counterstrikesharp\plugins\InventorySimulator\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
