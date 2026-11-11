@@ -68,8 +68,10 @@ public static class CCSPlayerControllerExtensions
             {
                 if (self.IsValid)
                 {
-                    self.PrintToChat(
-                        Runtime.Plugin.Localizer["invsim.ws_completed", Rules.GetChatPrefix()]
+                    InventorySimulator.NotifyPlayer(
+                        self,
+                        "Inventory",
+                        Runtime.Plugin.Localizer["invsim.ws_completed", ""].ToString()
                     );
                     self.HandleInventoryLoad();
                     self.HandlePostRefreshInventory(oldInventory);
@@ -396,18 +398,25 @@ public static class CCSPlayerControllerExtensions
             controllerState.IsFetching = false;
             Server.NextWorldUpdate(() =>
             {
-                var prefix = Rules.GetChatPrefix();
                 if (response == null)
                 {
-                    self?.PrintToChat(Runtime.Plugin.Localizer["invsim.login_failed", prefix]);
+                    InventorySimulator.NotifyPlayer(
+                        self,
+                        "Login",
+                        Runtime.Plugin.Localizer["invsim.login_failed", ""].ToString()
+                    );
                     return;
                 }
-                self?.PrintToChat(
-                    Runtime.Plugin.Localizer[
-                        "invsim.login",
-                        prefix,
-                        $"{Api.GetUrl("/api/sign-in/callback")}?token={response.Token}"
-                    ]
+                InventorySimulator.NotifyPlayer(
+                    self,
+                    "Login",
+                    Runtime
+                        .Plugin.Localizer[
+                            "invsim.login",
+                            "",
+                            $"{Api.GetUrl("/api/sign-in/callback")}?token={response.Token}"
+                        ]
+                        .ToString()
                 );
             });
         }
@@ -456,16 +465,25 @@ public static class CCSPlayerControllerExtensions
             item.Charges -= 1;
             if (item.Uid != null)
                 Api.SendConsumeItemSpray(self.SteamID, item.Uid.Value);
-            var prefix = Rules.GetChatPrefix();
             if (item.Charges <= 0)
             {
                 self.GetState().Inventory?.ClearGraffiti(self.TeamNum);
-                self.PrintToChat(Runtime.Plugin.Localizer["invsim.spray_charges_empty", prefix]);
+                InventorySimulator.NotifyPlayer(
+                    self,
+                    "Spray",
+                    Runtime.Plugin.Localizer["invsim.spray_charges_empty", ""].ToString()
+                );
             }
             else
-                self.PrintToChat(
-                    Runtime.Plugin.Localizer["invsim.spray_charges", prefix, item.Charges.Value]
+            {
+                InventorySimulator.NotifyPlayer(
+                    self,
+                    "Spray",
+                    Runtime
+                        .Plugin.Localizer["invsim.spray_charges", "", item.Charges.Value]
+                        .ToString()
                 );
+            }
         }
 
         public void HandleSprayDecalCreated(CPlayerSprayDecal sprayDecal)

@@ -33,9 +33,8 @@ public partial class InventorySimulator
 
     private void ExecuteInventoryRefreshCommand(CCSPlayerController? player, CommandInfo _)
     {
-        var prefix = Rules.GetChatPrefix();
         var url = UrlHelper.FormatUrl(ConVars.WsUrlPrintFormat.Value, ConVars.Url.Value);
-        player?.PrintToChat(Localizer["invsim.announce", prefix, url]);
+        NotifyPlayer(player, "Inventory", Localizer["invsim.announce", "", url].ToString());
         if (!ConVars.IsWsEnabled.Value || player == null)
             return;
         var controllerState = player.GetState();
@@ -43,16 +42,20 @@ public partial class InventorySimulator
         var diff = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - controllerState.WsUpdatedAt;
         if (diff < cooldown)
         {
-            player.PrintToChat(Localizer["invsim.ws_cooldown", prefix, cooldown - diff]);
+            NotifyPlayer(
+                player,
+                "Inventory",
+                Localizer["invsim.ws_cooldown", "", cooldown - diff].ToString()
+            );
             return;
         }
         if (controllerState.IsFetching)
         {
-            player.PrintToChat(Localizer["invsim.ws_in_progress", prefix]);
+            NotifyPlayer(player, "Inventory", Localizer["invsim.ws_in_progress", ""].ToString());
             return;
         }
         player.RefreshInventory(force: true);
-        player.PrintToChat(Localizer["invsim.ws_new", prefix]);
+        NotifyPlayer(player, "Inventory", Localizer["invsim.ws_new", ""].ToString());
     }
 
     [ConsoleCommand(
@@ -68,8 +71,10 @@ public partial class InventorySimulator
             var diff = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - controllerState.SprayUsedAt;
             if (diff < cooldown)
             {
-                player.PrintToChat(
-                    Localizer["invsim.spray_cooldown", Rules.GetChatPrefix(), cooldown - diff]
+                NotifyPlayer(
+                    player,
+                    "Spray",
+                    Localizer["invsim.spray_cooldown", "", cooldown - diff].ToString()
                 );
                 return;
             }
@@ -87,11 +92,11 @@ public partial class InventorySimulator
             return;
         var isNowDisabled = NoCasesPersistence.Toggle(player.SteamID);
         player.GetState().IsRoundWinCasesDisabled = isNowDisabled;
-        var prefix = Rules.GetChatPrefix();
-        player.PrintToChat(
-            isNowDisabled
-                ? Localizer["invsim.nocases_disabled", prefix]
-                : Localizer["invsim.nocases_enabled", prefix]
+        NotifyPlayer(
+            player,
+            "Cases",
+            Localizer[isNowDisabled ? "invsim.nocases_disabled" : "invsim.nocases_enabled", ""]
+                .ToString()
         );
     }
 
@@ -105,11 +110,71 @@ public partial class InventorySimulator
             return;
         var state = player.GetState();
         state.HideUnboxTradeUpMessages = !state.HideUnboxTradeUpMessages;
-        var prefix = Rules.GetChatPrefix();
-        player.PrintToChat(
-            state.HideUnboxTradeUpMessages
-                ? Localizer["invsim.hideunbox_disabled", prefix]
-                : Localizer["invsim.hideunbox_enabled", prefix]
+        NotifyPlayer(
+            player,
+            "Inventory",
+            Localizer[
+                state.HideUnboxTradeUpMessages
+                    ? "invsim.hideunbox_disabled"
+                    : "invsim.hideunbox_enabled",
+                ""
+            ]
+                .ToString()
+        );
+    }
+
+    [ConsoleCommand(
+        "css_nadetrails",
+        "Toggle visibility of grenade trails for yourself (saved across sessions)."
+    )]
+    public void OnNadeTrailsCommand(CCSPlayerController? player, CommandInfo _)
+    {
+        if (player == null || player.IsBot)
+            return;
+
+        var steamId = player.SteamID;
+        if (steamId == 0)
+            return;
+
+        // Delete current segments before opt-out so this client receives the removes.
+        if (!TrailViewPersistence.IsNadeOptedOut(steamId))
+            PurgeActiveTrailBeams(TrailKind.Nade);
+
+        var nowHidden = TrailViewPersistence.ToggleNade(steamId);
+        NotifyPlayer(
+            player,
+            "Inventory",
+            Localizer[nowHidden ? "invsim.nadetrails_disabled" : "invsim.nadetrails_enabled", ""]
+                .ToString()
+        );
+    }
+
+    [ConsoleCommand(
+        "css_playertrails",
+        "Toggle visibility of player trails for yourself (saved across sessions)."
+    )]
+    public void OnPlayerTrailsCommand(CCSPlayerController? player, CommandInfo _)
+    {
+        if (player == null || player.IsBot)
+            return;
+
+        var steamId = player.SteamID;
+        if (steamId == 0)
+            return;
+
+        // Delete current segments before opt-out so this client receives the removes.
+        if (!TrailViewPersistence.IsPlayerOptedOut(steamId))
+            PurgeActiveTrailBeams(TrailKind.Player);
+
+        var nowHidden = TrailViewPersistence.TogglePlayer(steamId);
+        NotifyPlayer(
+            player,
+            "Inventory",
+            Localizer[
+                nowHidden ? "invsim.playertrails_disabled" : "invsim.playertrails_enabled",
+                ""
+            ]
+                .ToString()
         );
     }
 
@@ -122,7 +187,7 @@ public partial class InventorySimulator
         if (ConVars.IsWsLogin.Value && Api.HasApiKey() && player != null)
         {
             var controllerState = player.GetState();
-            player.PrintToChat(Localizer["invsim.login_in_progress", Rules.GetChatPrefix()]);
+            NotifyPlayer(player, "Login", Localizer["invsim.login_in_progress", ""].ToString());
             if (controllerState.IsAuthenticating)
                 return;
             player.SignIn();
@@ -131,7 +196,7 @@ public partial class InventorySimulator
 
     [ConsoleCommand(
         "css_inventorypanorama",
-        "Toggle your Panorama case/trade-up notifications (!inventorypanorama [0|1])"
+        "Toggle your Panorama notifications (!inventorypanorama [0|1])"
     )]
     [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
     public void OnPanoramaCommand(CCSPlayerController? player, CommandInfo command)
@@ -157,13 +222,18 @@ public partial class InventorySimulator
 
         if (enabled && !ConVars.UsePanoramaUI.Value)
         {
-            player.PrintToChat($" {ReplaceColorTags(Localizer["invsim.panorama_disabled_server", Rules.GetChatPrefix()])}");
+            // Server has Panorama off — always chat.
+            player.PrintToChat(
+                $" {ReplaceColorTags(Localizer["invsim.panorama_disabled_server", Rules.GetChatPrefix()])}"
+            );
             return;
         }
 
-        player.PrintToChat(enabled
-            ? $" {ReplaceColorTags(Localizer["invsim.panorama_enabled", Rules.GetChatPrefix()])}"
-            : $" {ReplaceColorTags(Localizer["invsim.panorama_disabled", Rules.GetChatPrefix()])}");
+        NotifyPlayer(
+            player,
+            "Inventory",
+            Localizer[enabled ? "invsim.panorama_enabled" : "invsim.panorama_disabled", ""].ToString()
+        );
     }
 
     /// <summary>

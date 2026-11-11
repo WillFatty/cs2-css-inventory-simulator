@@ -150,7 +150,7 @@ public static class ConVars
 
     public static readonly FakeConVar<bool> UsePanoramaUI = new(
         "invsim_panorama_ui",
-        "When true, case opening and trade-up notifications use the HexiumCS-UI Workshop Panorama toast instead of chat.",
+        "When true, player notifications use the HexiumCS-UI Workshop Panorama toast instead of chat (players can still opt out with !inventorypanorama).",
         false
     );
 

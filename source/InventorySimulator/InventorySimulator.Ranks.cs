@@ -35,7 +35,15 @@ public partial class InventorySimulator
     private readonly ConcurrentDictionary<ulong, RankTrailColors> _playersWithPlayerTrail = new();
     private readonly Dictionary<ulong, Vector> _playerTrailLastOrigin = new();
     private readonly Dictionary<uint, NadeTrailTracker> _nadeTrailTrackers = new();
+    private readonly HashSet<CBeam> _nadeTrailBeams = [];
+    private readonly HashSet<CBeam> _playerTrailBeams = [];
     private Timer? _rankAutosaveTimer;
+
+    private enum TrailKind
+    {
+        Nade,
+        Player,
+    }
 
     private bool RanksActive => ConVars.IsRankEnabled.Value && Api.HasApiKey();
 
@@ -53,6 +61,7 @@ public partial class InventorySimulator
     {
         RegisterListener<Listeners.OnTick>(OnRanksTick);
         RegisterListener<Listeners.OnMapEnd>(OnRanksMapEnd);
+        RegisterListener<Listeners.CheckTransmit>(OnRanksCheckTransmit);
         _rankAutosaveTimer = AddTimer(30.0f, FlushDirtyRankPoints, TimerFlags.REPEAT);
 
 
@@ -313,7 +322,7 @@ public partial class InventorySimulator
                 {
                     Logger.LogError(ex, "Failed loading rank for {SteamId}", steamId);
                     if (player.IsValid)
-                        player.PrintToChat($" {Rules.GetChatPrefix()}Failed to load your rank.");
+                        NotifyPlayer(player, "Rank", "Failed to load your rank.");
                 });
             }
         });
@@ -363,8 +372,10 @@ public partial class InventorySimulator
                         return;
 
                     if (!HexiumUI.TryShowLeaderboard(player, page, viewerSteamId, LoadPage))
-                        player.PrintToChat(
-                            $" {Rules.GetChatPrefix()}The leaderboard UI is unavailable. Check that HexiumCS-UI and the Panorama addon are loaded."
+                        NotifyPlayer(
+                            player,
+                            "Leaderboard",
+                            "The leaderboard UI is unavailable. Check that HexiumCS-UI and the Panorama addon are loaded."
                         );
                 });
             }
@@ -374,7 +385,7 @@ public partial class InventorySimulator
                 {
                     Logger.LogError(ex, "Failed loading points leaderboard.");
                     if (player.IsValid)
-                        player.PrintToChat($" {Rules.GetChatPrefix()}Failed to load the points leaderboard.");
+                        NotifyPlayer(player, "Leaderboard", "Failed to load the points leaderboard.");
                 });
             }
         });
@@ -598,7 +609,7 @@ public partial class InventorySimulator
             if ((dx * dx) + (dy * dy) + (dz * dz) < TrailMinSegmentDistance * TrailMinSegmentDistance)
                 continue;
 
-            CreateRankTrailBeam(origin, last, tracker.Color);
+            CreateRankTrailBeam(origin, last, tracker.Color, TrailKind.Nade);
             last.X = origin.X;
             last.Y = origin.Y;
             last.Z = origin.Z;
@@ -657,14 +668,14 @@ public partial class InventorySimulator
             if ((dx * dx) + (dy * dy) + (dz * dz) < TrailMinSegmentDistance * TrailMinSegmentDistance)
                 continue;
 
-            CreateRankTrailBeam(origin, last, trailColor.Value);
+            CreateRankTrailBeam(origin, last, trailColor.Value, TrailKind.Player);
             last.X = origin.X;
             last.Y = origin.Y;
             last.Z = origin.Z;
         }
     }
 
-    private void CreateRankTrailBeam(Vector start, Vector end, Color color)
+    private void CreateRankTrailBeam(Vector start, Vector end, Color color, TrailKind kind)
     {
         var beam = Utilities.CreateEntityByName<CBeam>("env_beam");
         if (beam is null || !beam.IsValid)
@@ -680,18 +691,77 @@ public partial class InventorySimulator
         beam.EndPos.Z = end.Z;
         Utilities.SetStateChanged(beam, "CBeam", "m_vecEndPos");
 
+        var beamSet = kind == TrailKind.Nade ? _nadeTrailBeams : _playerTrailBeams;
+        beamSet.Add(beam);
+
         AddTimer(TrailBeamLifetime, () =>
         {
+            beamSet.Remove(beam);
             if (beam.IsValid)
                 beam.Remove();
         }, TimerFlags.STOP_ON_MAPCHANGE);
     }
 
+    private void OnRanksCheckTransmit(CCheckTransmitInfoList infoList)
+    {
+        var hideNade = TrailViewPersistence.HasNadeOptOuts && _nadeTrailBeams.Count > 0;
+        var hidePlayer = TrailViewPersistence.HasPlayerOptOuts && _playerTrailBeams.Count > 0;
+        if (!hideNade && !hidePlayer)
+            return;
+
+        foreach (var (info, player) in infoList)
+        {
+            if (player is null || !player.IsValid || player.IsBot)
+                continue;
+
+            var steamId = player.SteamID;
+            if (steamId == 0)
+                continue;
+
+            if (hideNade && TrailViewPersistence.IsNadeOptedOut(steamId))
+            {
+                foreach (var beam in _nadeTrailBeams)
+                {
+                    if (beam.IsValid)
+                        info.TransmitEntities.Remove(beam);
+                }
+            }
+
+            if (hidePlayer && TrailViewPersistence.IsPlayerOptedOut(steamId))
+            {
+                foreach (var beam in _playerTrailBeams)
+                {
+                    if (beam.IsValid)
+                        info.TransmitEntities.Remove(beam);
+                }
+            }
+        }
+    }
+
     private void RemoveNadeTrail(uint grenadeIndex)
         => _nadeTrailTrackers.Remove(grenadeIndex);
 
+    /// <summary>
+    /// Removes active trail beams while they are still transmitted, so clients do not keep
+    /// ghost segments after CheckTransmit starts hiding them.
+    /// </summary>
+    private void PurgeActiveTrailBeams(TrailKind kind)
+    {
+        var beamSet = kind == TrailKind.Nade ? _nadeTrailBeams : _playerTrailBeams;
+        foreach (var beam in beamSet)
+        {
+            if (beam.IsValid)
+                beam.Remove();
+        }
+        beamSet.Clear();
+    }
+
     private void ClearRankTrails()
-        => _nadeTrailTrackers.Clear();
+    {
+        _nadeTrailTrackers.Clear();
+        _nadeTrailBeams.Clear();
+        _playerTrailBeams.Clear();
+    }
 
     private sealed class RankTrailColors
     {
@@ -830,12 +900,7 @@ public partial class InventorySimulator
     }
 
     private void NotifyRankPlayer(CCSPlayerController player, string title, string message, int duration = 4)
-    {
-        if (WantsPanorama(player))
-            HexiumUI.ShowNotification(player, title, message, duration);
-        else
-            player.PrintToChat($" {ReplaceColorTags(Rules.GetChatPrefix() + message)}");
-    }
+        => NotifyPlayer(player, title, message, duration);
 
     private void ApplyRankScoreboard(CCSPlayerController player, int points)
     {
@@ -1053,12 +1118,16 @@ public partial class InventorySimulator
 
         if (enabled && !ConVars.UsePanoramaUI.Value)
         {
-            player.PrintToChat($" {ReplaceColorTags(Localizer["invsim.panorama_disabled_server", Rules.GetChatPrefix()].ToString())}");
+            player.PrintToChat(
+                $" {ReplaceColorTags(Localizer["invsim.panorama_disabled_server", Rules.GetChatPrefix()].ToString())}"
+            );
             return;
         }
 
-        player.PrintToChat(enabled
-            ? $" {ReplaceColorTags(Localizer["invsim.panorama_enabled", Rules.GetChatPrefix()].ToString())}"
-            : $" {ReplaceColorTags(Localizer["invsim.panorama_disabled", Rules.GetChatPrefix()].ToString())}");
+        NotifyPlayer(
+            player,
+            "Inventory",
+            Localizer[enabled ? "invsim.panorama_enabled" : "invsim.panorama_disabled", ""].ToString()
+        );
     }
 }

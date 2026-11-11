@@ -55,6 +55,7 @@ public partial class InventorySimulator
     {
         ConVars.UnboxPollInterval.ValueChanged += OnUnboxPollIntervalChanged;
         NoCasesPersistence.Load();
+        TrailViewPersistence.Load();
         StartUnboxPollTimer();
         StartUnboxBroadcastDrainTimer();
 
@@ -181,21 +182,14 @@ public partial class InventorySimulator
         if (!PendingUnboxBroadcasts.TryDequeue(out var message))
             return;
 
-        // Queue stores {color}-tagged text (panorama-ready). Chat needs CSS color bytes.
-        var chatMessage = message.ReplaceColorTags();
-        // Chat keeps the "••" prefix; Panorama toasts look cleaner without it.
-        var panoramaMessage = StripLeadingBulletPrefix(message);
-
         foreach (
             var p in Utilities
                 .GetPlayers()
                 .Where(p => p.IsValid && !p.IsBot && !p.GetState().HideUnboxTradeUpMessages)
         )
         {
-            if (WantsPanorama(p))
-                HexiumUI.ShowNotification(p, "Inventory", panoramaMessage, 5);
-            else
-                p.PrintToChat(chatMessage);
+            // Broadcast lines are fully formatted; chat should not add the server prefix again.
+            NotifyPlayer(p, "Inventory", message, duration: 5, chatPrefix: false);
         }
     }
 
@@ -216,6 +210,39 @@ public partial class InventorySimulator
 
         var steamId = player.AuthorizedSteamID?.SteamId64;
         return steamId is null || !_panoramaOptOut.Contains(steamId.Value);
+    }
+
+    /// <summary>
+    /// Routes a player notification to Panorama when enabled for them, otherwise chat.
+    /// <paramref name="message"/> may use {color} tags or Localizer chat color bytes.
+    /// When <paramref name="chatPrefix"/> is true, the configured chat prefix is prepended for chat only.
+    /// </summary>
+    internal static void NotifyPlayer(
+        CCSPlayerController? player,
+        string title,
+        string message,
+        int duration = 5,
+        bool chatPrefix = true
+    )
+    {
+        if (player is null || !player.IsValid || player.IsBot || player.IsHLTV)
+            return;
+
+        var normalized = ToPanoramaColorTags(message);
+
+        if (WantsPanorama(player))
+        {
+            HexiumUI.ShowNotification(
+                player,
+                title,
+                StripLeadingBulletPrefix(normalized),
+                duration
+            );
+            return;
+        }
+
+        var chatBody = normalized.ReplaceColorTags();
+        player.PrintToChat(chatPrefix ? $"{Rules.GetChatPrefix()}{chatBody.TrimStart()}" : chatBody);
     }
 
     public void HandleLastCaseOpeningAndTradeUpPoll()
@@ -520,24 +547,10 @@ public partial class InventorySimulator
 
     private static void NotifyRoundWinCase(CCSPlayerController player)
     {
-        var prefix = ConVars.ChatPrefix.Value;
-        if (!string.IsNullOrEmpty(prefix) && !prefix.EndsWith(' '))
-            prefix += " ";
-
-        // Prefix keeps {color} tags; Localizer may still inject chat bytes — normalize.
-        if (WantsPanorama(player))
-        {
-            var panoramaMessage = ToPanoramaColorTags(
-                Runtime.Plugin.Localizer["invsim.roundwin_case", ""].ToString()
-            );
-            HexiumUI.ShowNotification(player, "Case Received", panoramaMessage, 5);
-        }
-        else
-        {
-            var tagged = ToPanoramaColorTags(
-                Runtime.Plugin.Localizer["invsim.roundwin_case", prefix].ToString()
-            );
-            player.PrintToChat(tagged.ReplaceColorTags());
-        }
+        NotifyPlayer(
+            player,
+            "Inventory",
+            Runtime.Plugin.Localizer["invsim.roundwin_case", ""].ToString()
+        );
     }
 }
